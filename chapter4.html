@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Three.js - Chapter 4: Materials</title>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #101018;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        #info {
+            position: absolute;
+            top: 12px;
+            left: 15px;
+            line-height: 1.6;
+            pointer-events: none;
+        }
+
+        #controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 220px;
+            padding: 15px;
+            background: rgba(15, 15, 30, 0.92);
+            border: 1px solid #555577;
+            border-radius: 8px;
+        }
+
+        h3 {
+            margin-top: 0;
+        }
+
+        label {
+            display: block;
+            margin: 12px 0 5px;
+            font-size: 14px;
+        }
+
+        input[type="range"],
+        input[type="color"],
+        select {
+            width: 100%;
+        }
+
+        input[type="color"] {
+            height: 32px;
+            cursor: pointer;
+        }
+
+        select {
+            padding: 8px;
+            color: white;
+            background: #252540;
+            border: 1px solid #7777aa;
+            border-radius: 4px;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 12px;
+            padding: 9px;
+            color: white;
+            background: #292945;
+            border: 1px solid #7777aa;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #44446b;
+        }
+
+        .value {
+            color: #aaaaff;
+        }
+
+        .help {
+            font-size: 12px;
+            line-height: 1.5;
+            color: #bbbbdd;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="info">
+        <strong>THREE.JS — CHAPTER 4</strong><br>
+        Working with Materials<br>
+        Six spheres, six different appearances
+    </div>
+
+    <div id="controls">
+
+        <h3>Material Laboratory</h3>
+
+        <label for="selectedSphere">Choose a sphere:</label>
+
+        <select id="selectedSphere">
+            <option value="0">1. Basic Material</option>
+            <option value="1">2. Lambert Material</option>
+            <option value="2">3. Phong Material</option>
+            <option value="3">4. Standard Material</option>
+            <option value="4">5. Physical Material</option>
+            <option value="5">6. Toon Material</option>
+        </select>
+
+        <label for="colorPicker">Color:</label>
+        <input type="color" id="colorPicker" value="#ff5533">
+
+        <label for="roughness">
+            Roughness:
+            <span class="value" id="roughnessValue">0.5</span>
+        </label>
+
+        <input
+            type="range"
+            id="roughness"
+            min="0"
+            max="1"
+            step="0.05"
+            value="0.5"
+        >
+
+        <label for="metalness">
+            Metalness:
+            <span class="value" id="metalnessValue">0.0</span>
+        </label>
+
+        <input
+            type="range"
+            id="metalness"
+            min="0"
+            max="1"
+            step="0.05"
+            value="0"
+        >
+
+        <label>
+            <input type="checkbox" id="lightsToggle" checked>
+            Enable lights
+        </label>
+
+        <button id="resetButton">Reset Material</button>
+
+        <p class="help">
+            Select a sphere and experiment with its settings.
+            Basic Material does not react to scene lighting.
+        </p>
+
+    </div>
+
+    <script type="module">
+
+        import * as THREE from "three";
+
+
+        // ==========================================
+        // 1. CREATE SCENE
+        // ==========================================
+
+        const scene = new THREE.Scene();
+
+        scene.background = new THREE.Color(0x101018);
+
+
+        // ==========================================
+        // 2. CREATE CAMERA
+        // ==========================================
+
+        const camera = new THREE.PerspectiveCamera(
+            55,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            100
+        );
+
+        camera.position.set(0, 4, 12);
+
+        camera.lookAt(0, 1, 0);
+
+
+        // ==========================================
+        // 3. CREATE RENDERER
+        // ==========================================
+
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true
+        });
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+
+        renderer.setPixelRatio(
+            Math.min(window.devicePixelRatio, 2)
+        );
+
+        document.body.appendChild(renderer.domElement);
+
+
+        // ==========================================
+        // 4. CREATE LIGHTS
+        // ==========================================
+
+        const ambientLight = new THREE.AmbientLight(
+            0xffffff,
+            1.2
+        );
+
+        scene.add(ambientLight);
+
+
+        const directionalLight = new THREE.DirectionalLight(
+            0xffffff,
+            2.5
+        );
+
+        directionalLight.position.set(-4, 8, 6);
+
+        scene.add(directionalLight);
+
+
+        // ==========================================
+        // 5. CREATE SPHERE GEOMETRY
+        // ==========================================
+
+        // All six spheres use the SAME geometry.
+
+        const sphereGeometry = new THREE.SphereGeometry(
+            0.8,
+            48,
+            32
+        );
+
+
+        // ==========================================
+        // 6. CREATE DIFFERENT MATERIALS
+        // ==========================================
+
+        const materials = [
+
+            // Sphere 1: Basic Material
+
+            new THREE.MeshBasicMaterial({
+                color: 0xff5533
+            }),
+
+
+            // Sphere 2: Lambert Material
+
+            new THREE.MeshLambertMaterial({
+                color: 0xffaa33
+            }),
+
+
+            // Sphere 3: Phong Material
+
+            new THREE.MeshPhongMaterial({
+                color: 0x55dd88,
+                shininess: 100
+            }),
+
+
+            // Sphere 4: Standard Material
+
+            new THREE.MeshStandardMaterial({
+                color: 0x3399ff,
+                roughness: 0.5,
+                metalness: 0
+            }),
+
+
+            // Sphere 5: Physical Material
+
+            new THREE.MeshPhysicalMaterial({
+                color: 0xbb77ff,
+                roughness: 0.15,
+                metalness: 0.8,
+                clearcoat: 0.5
+            }),
+
+
+            // Sphere 6: Toon Material
+
+            new THREE.MeshToonMaterial({
+                color: 0xff6699
+            })
+
+        ];
+
+
+        // ==========================================
+        // 7. CREATE THE SPHERES
+        // ==========================================
+
+        const spheres = [];
+
+        const spacing = 2.2;
+
+        for (let i = 0; i < materials.length; i++) {
+
+            const sphere = new THREE.Mesh(
+                sphereGeometry,
+                materials[i]
+            );
+
+            sphere.position.set(
+                (i - 2.5) * spacing,
+                1,
+                0
+            );
+
+            scene.add(sphere);
+
+            spheres.push(sphere);
+
+        }
+
+
+        // ==========================================
+        // 8. ADD LABELS USING HTML
+        // ==========================================
+
+        const labels = [
+            "Basic",
+            "Lambert",
+            "Phong",
+            "Standard",
+            "Physical",
+            "Toon"
+        ];
+
+        const labelElements = [];
+
+        for (let i = 0; i < labels.length; i++) {
+
+            const label = document.createElement("div");
+
+            label.textContent = labels[i];
+
+            label.style.position = "absolute";
+            label.style.color = "white";
+            label.style.fontSize = "13px";
+            label.style.textAlign = "center";
+            label.style.pointerEvents = "none";
+
+            document.body.appendChild(label);
+
+            labelElements.push(label);
+
+        }
+
+
+        // ==========================================
+        // 9. SELECT A MATERIAL TO EDIT
+        // ==========================================
+
+        const selectedSphere =
+            document.getElementById("selectedSphere");
+
+        const colorPicker =
+            document.getElementById("colorPicker");
+
+        const roughnessSlider =
+            document.getElementById("roughness");
+
+        const metalnessSlider =
+            document.getElementById("metalness");
+
+        const lightsToggle =
+            document.getElementById("lightsToggle");
+
+
+        function updateControls() {
+
+            const index = Number(selectedSphere.value);
+
+            const material = materials[index];
+
+            colorPicker.value =
+                "#" + material.color.getHexString();
+
+            // These properties apply to Standard and Physical
+            // materials. Other materials don't use them.
+
+            roughnessSlider.disabled =
+                !(material.isMeshStandardMaterial ||
+                  material.isMeshPhysicalMaterial);
+
+            metalnessSlider.disabled =
+                !(material.isMeshStandardMaterial ||
+                  material.isMeshPhysicalMaterial);
+
+            roughnessSlider.value =
+                material.roughness ?? 0.5;
+
+            metalnessSlider.value =
+                material.metalness ?? 0;
+
+            document.getElementById("roughnessValue")
+                .textContent = roughnessSlider.value;
+
+            document.getElementById("metalnessValue")
+                .textContent = metalnessSlider.value;
+
+        }
+
+
+        selectedSphere.addEventListener(
+            "change",
+            updateControls
+        );
+
+
+        // ==========================================
+        // 10. CHANGE MATERIAL COLOR
+        // ==========================================
+
+        colorPicker.addEventListener("input", () => {
+
+            const index = Number(selectedSphere.value);
+
+            materials[index].color.set(colorPicker.value);
+
+        });
+
+
+        // ==========================================
+        // 11. CHANGE ROUGHNESS
+        // ==========================================
+
+        roughnessSlider.addEventListener("input", () => {
+
+            const index = Number(selectedSphere.value);
+
+            const material = materials[index];
+
+            if (material.isMeshStandardMaterial) {
+
+                material.roughness =
+                    Number(roughnessSlider.value);
+
+            }
+
+            document.getElementById("roughnessValue")
+                .textContent = roughnessSlider.value;
+
+        });
+
+
+        // ==========================================
+        // 12. CHANGE METALNESS
+        // ==========================================
+
+        metalnessSlider.addEventListener("input", () => {
+
+            const index = Number(selectedSphere.value);
+
+            const material = materials[index];
+
+            if (material.isMeshStandardMaterial) {
+
+                material.metalness =
+                    Number(metalnessSlider.value);
+
+            }
+
+            document.getElementById("metalnessValue")
+                .textContent = metalnessSlider.value;
+
+        });
+
+
+        // ==========================================
+        // 13. TURN LIGHTS ON OR OFF
+        // ==========================================
+
+        lightsToggle.addEventListener("change", () => {
+
+            ambientLight.visible = lightsToggle.checked;
+
+            directionalLight.visible = lightsToggle.checked;
+
+        });
+
+
+        // ==========================================
+        // 14. RESET SELECTED MATERIAL
+        // ==========================================
+
+        document.getElementById("resetButton")
+            .addEventListener("click", () => {
+
+                const index = Number(selectedSphere.value);
+
+                const defaults = [
+                    0xff5533,
+                    0xffaa33,
+                    0x55dd88,
+                    0x3399ff,
+                    0xbb77ff,
+                    0xff6699
+                ];
+
+                materials[index].color.setHex(defaults[index]);
+
+                if (materials[index].isMeshStandardMaterial) {
+
+                    materials[index].roughness = 0.5;
+
+                    materials[index].metalness =
+                        index === 4 ? 0.8 : 0;
+
+                }
+
+                updateControls();
+
+            });
+
+
+        // ==========================================
+        // 15. FLOOR
+        // ==========================================
+
+        const floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(200, 200),
+            new THREE.MeshStandardMaterial({
+                color: 0x252535,
+                roughness: 1
+            })
+        );
+
+        floor.rotation.x = -Math.PI / 2;
+
+        scene.add(floor);
+
+
+        const grid = new THREE.GridHelper(
+            20,
+            20,
+            0x666688,
+            0x333344
+        );
+
+        grid.position.y = 0.01;
+
+        scene.add(grid);
+
+
+        // ==========================================
+        // 16. ANIMATION AND LABEL POSITIONING
+        // ==========================================
+
+        const vector = new THREE.Vector3();
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+            for (let i = 0; i < spheres.length; i++) {
+
+                spheres[i].rotation.y += 0.008;
+
+                vector.copy(spheres[i].position);
+
+                vector.y += 1.15;
+
+                vector.project(camera);
+
+                const x =
+                    (vector.x * 0.5 + 0.5) *
+                    window.innerWidth;
+
+                const y =
+                    (-vector.y * 0.5 + 0.5) *
+                    window.innerHeight;
+
+                labelElements[i].style.left =
+                    (x - 35) + "px";
+
+                labelElements[i].style.top =
+                    y + "px";
+
+                labelElements[i].style.width = "70px";
+
+            }
+
+            renderer.render(scene, camera);
+
+        }
+
+
+        updateControls();
+
+        animate();
+
+
+        // ==========================================
+        // 17. HANDLE WINDOW RESIZING
+        // ==========================================
+
+        window.addEventListener("resize", () => {
+
+            camera.aspect =
+                window.innerWidth / window.innerHeight;
+
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(
+                window.innerWidth,
+                window.innerHeight
+            );
+
+        });
+
+    </script>
+
+</body>
+
+</html>
