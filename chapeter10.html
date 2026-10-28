@@ -1,0 +1,722 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js - Chapter 10: Texture Lab</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #10131c;
+            color: white;
+        }
+
+        #info {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 10;
+            max-width: 320px;
+            padding: 15px;
+            background: rgba(10, 15, 30, 0.88);
+            border-radius: 10px;
+        }
+
+        h2 {
+            margin: 0 0 8px;
+            color: #72d6ff;
+        }
+
+        p {
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        #controls {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            z-index: 10;
+            width: 190px;
+            padding: 12px;
+            background: rgba(10, 15, 30, 0.88);
+            border-radius: 10px;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            margin: 7px 0;
+            padding: 10px;
+            border: 0;
+            border-radius: 6px;
+            background: #245b83;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #347eae;
+        }
+
+        button.active {
+            background: #16835f;
+        }
+
+        #status {
+            margin-top: 10px;
+            color: #9ee7c9;
+            font-size: 12px;
+        }
+
+        #help {
+            position: absolute;
+            bottom: 12px;
+            left: 15px;
+            z-index: 10;
+            padding: 9px 12px;
+            background: rgba(10, 15, 30, 0.8);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+
+    <div id="info">
+        <h2>Texture Lab</h2>
+        <p>
+            Chapter 10: Loading and Working with Textures.
+            Change the texture and observe how it affects the
+            cube, sphere, and floor.
+        </p>
+        <p>
+            <strong>Texture:</strong> An image or image-like
+            data applied to a 3D surface.
+        </p>
+    </div>
+
+    <div id="controls">
+        <strong>Choose a texture</strong>
+
+        <button id="woodBtn" class="active">Wood Pattern</button>
+        <button id="brickBtn">Brick Pattern</button>
+        <button id="checkerBtn">Checker Pattern</button>
+
+        <hr>
+
+        <button id="bumpBtn">Toggle Bump Map</button>
+        <button id="roughBtn">Toggle Roughness Map</button>
+        <button id="rotateBtn">Pause Rotation</button>
+        <button id="resetBtn">Reset Scene</button>
+
+        <div id="status">Texture: Wood Pattern</div>
+    </div>
+
+    <div id="help">
+        Drag to orbit • Scroll to zoom • Select buttons to experiment
+    </div>
+
+    <script type="module">
+        import * as THREE from "three";
+        import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+        // --------------------------------------------------
+        // 1. CREATE THE SCENE
+        // --------------------------------------------------
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x10131c);
+
+        // --------------------------------------------------
+        // 2. CREATE THE CAMERA
+        // --------------------------------------------------
+
+        const camera = new THREE.PerspectiveCamera(
+            60,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            100
+        );
+
+        camera.position.set(7, 5, 9);
+
+        // --------------------------------------------------
+        // 3. CREATE THE RENDERER
+        // --------------------------------------------------
+
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true
+        });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+        document.body.appendChild(renderer.domElement);
+
+        // --------------------------------------------------
+        // 4. CAMERA CONTROLS
+        // --------------------------------------------------
+
+        const controls = new OrbitControls(
+            camera,
+            renderer.domElement
+        );
+
+        controls.enableDamping = true;
+        controls.target.set(0, 1, 0);
+
+        // --------------------------------------------------
+        // 5. LIGHTS
+        // --------------------------------------------------
+
+        const ambientLight = new THREE.AmbientLight(
+            0xffffff,
+            1.2
+        );
+
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(
+            0xffffff,
+            3
+        );
+
+        sunLight.position.set(5, 9, 6);
+        sunLight.castShadow = true;
+
+        sunLight.shadow.mapSize.set(1024, 1024);
+
+        scene.add(sunLight);
+
+        // --------------------------------------------------
+        // 6. CREATE TEXTURES WITH HTML CANVAS
+        // --------------------------------------------------
+
+        function createTexture(pattern) {
+            const canvas = document.createElement("canvas");
+
+            canvas.width = 512;
+            canvas.height = 512;
+
+            const ctx = canvas.getContext("2d");
+
+            if (pattern === "wood") {
+                // Base wood color
+                ctx.fillStyle = "#9b572d";
+                ctx.fillRect(0, 0, 512, 512);
+
+                // Draw wood grain
+                for (let i = 0; i < 100; i++) {
+                    const y = Math.random() * 512;
+
+                    ctx.strokeStyle =
+                        i % 2 === 0 ? "#60351e" : "#c1844d";
+
+                    ctx.lineWidth = Math.random() * 5 + 1;
+
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+
+                    ctx.bezierCurveTo(
+                        150,
+                        y - 20,
+                        350,
+                        y + 20,
+                        512,
+                        y
+                    );
+
+                    ctx.stroke();
+                }
+
+                // Knots in the wood
+                for (let i = 0; i < 5; i++) {
+                    const x = Math.random() * 512;
+                    const y = Math.random() * 512;
+
+                    ctx.strokeStyle = "#482717";
+                    ctx.lineWidth = 3;
+
+                    ctx.beginPath();
+                    ctx.ellipse(x, y, 12, 5, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+
+            if (pattern === "brick") {
+                // Mortar background
+                ctx.fillStyle = "#c7b7a2";
+                ctx.fillRect(0, 0, 512, 512);
+
+                const brickWidth = 128;
+                const brickHeight = 64;
+
+                for (let row = 0; row < 8; row++) {
+                    const offset =
+                        row % 2 === 0 ? 0 : -brickWidth / 2;
+
+                    for (let col = 0; col < 5; col++) {
+                        const x = col * brickWidth + offset;
+                        const y = row * brickHeight;
+
+                        ctx.fillStyle =
+                            row % 2 === 0 ? "#a84435" : "#b64e3b";
+
+                        ctx.fillRect(
+                            x + 3,
+                            y + 3,
+                            brickWidth - 6,
+                            brickHeight - 6
+                        );
+                    }
+                }
+            }
+
+            if (pattern === "checker") {
+                const tileSize = 64;
+
+                for (let row = 0; row < 8; row++) {
+                    for (let col = 0; col < 8; col++) {
+                        const isLight = (row + col) % 2 === 0;
+
+                        ctx.fillStyle = isLight
+                            ? "#f0d878"
+                            : "#334d8c";
+
+                        ctx.fillRect(
+                            col * tileSize,
+                            row * tileSize,
+                            tileSize,
+                            tileSize
+                        );
+                    }
+                }
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+
+            // Tell Three.js that this texture contains color data.
+            texture.colorSpace = THREE.SRGBColorSpace;
+
+            // Repeat the pattern across the surface.
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+
+            texture.needsUpdate = true;
+
+            return texture;
+        }
+
+        // Create all three texture patterns.
+        const woodTexture = createTexture("wood");
+        const brickTexture = createTexture("brick");
+        const checkerTexture = createTexture("checker");
+
+        // --------------------------------------------------
+        // 7. CREATE A GRAYSCALE BUMP TEXTURE
+        // --------------------------------------------------
+
+        function createBumpTexture() {
+            const canvas = document.createElement("canvas");
+
+            canvas.width = 256;
+            canvas.height = 256;
+
+            const ctx = canvas.getContext("2d");
+
+            ctx.fillStyle = "#888888";
+            ctx.fillRect(0, 0, 256, 256);
+
+            for (let i = 0; i < 350; i++) {
+                const x = Math.random() * 256;
+                const y = Math.random() * 256;
+                const radius = Math.random() * 8 + 2;
+
+                const shade = Math.random() > 0.5
+                    ? "#eeeeee"
+                    : "#333333";
+
+                ctx.fillStyle = shade;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+
+            // This is grayscale surface data, not a color image.
+            return texture;
+        }
+
+        const bumpTexture = createBumpTexture();
+
+        // --------------------------------------------------
+        // 8. CREATE A GRAYSCALE ROUGHNESS TEXTURE
+        // --------------------------------------------------
+
+        function createRoughnessTexture() {
+            const canvas = document.createElement("canvas");
+
+            canvas.width = 256;
+            canvas.height = 256;
+
+            const ctx = canvas.getContext("2d");
+
+            ctx.fillStyle = "#bbbbbb";
+            ctx.fillRect(0, 0, 256, 256);
+
+            for (let i = 0; i < 500; i++) {
+                const x = Math.random() * 256;
+                const y = Math.random() * 256;
+                const size = Math.random() * 10 + 2;
+
+                const shade = Math.random() > 0.5
+                    ? "#ffffff"
+                    : "#444444";
+
+                ctx.fillStyle = shade;
+                ctx.fillRect(x, y, size, size);
+            }
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        const roughnessTexture = createRoughnessTexture();
+
+        // --------------------------------------------------
+        // 9. CREATE MATERIALS
+        // --------------------------------------------------
+
+        const material = new THREE.MeshStandardMaterial({
+            map: woodTexture,
+            roughness: 0.7,
+            metalness: 0.05
+        });
+
+        // --------------------------------------------------
+        // 10. CREATE THE CUBE
+        // --------------------------------------------------
+
+        const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
+
+        const cube = new THREE.Mesh(
+            cubeGeometry,
+            material
+        );
+
+        cube.position.set(-2.2, 2, 0);
+
+        cube.castShadow = true;
+        cube.receiveShadow = true;
+
+        scene.add(cube);
+
+        // --------------------------------------------------
+        // 11. CREATE THE SPHERE
+        // --------------------------------------------------
+
+        const sphereMaterial = new THREE.MeshStandardMaterial({
+            map: woodTexture,
+            roughness: 0.7,
+            metalness: 0.05
+        });
+
+        const sphere = new THREE.Mesh(
+            new THREE.SphereGeometry(1.15, 64, 64),
+            sphereMaterial
+        );
+
+        sphere.position.set(2.2, 2, 0);
+
+        sphere.castShadow = true;
+        sphere.receiveShadow = true;
+
+        scene.add(sphere);
+
+        // --------------------------------------------------
+        // 12. CREATE THE FLOOR
+        // --------------------------------------------------
+
+        const floorTexture = woodTexture.clone();
+
+        floorTexture.wrapS = THREE.RepeatWrapping;
+        floorTexture.wrapT = THREE.RepeatWrapping;
+
+        floorTexture.repeat.set(4, 4);
+        floorTexture.needsUpdate = true;
+
+        const floorMaterial = new THREE.MeshStandardMaterial({
+            map: floorTexture,
+            roughness: 0.9
+        });
+
+        const floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(20, 20),
+            floorMaterial
+        );
+
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = 0;
+
+        floor.receiveShadow = true;
+
+        scene.add(floor);
+
+        // --------------------------------------------------
+        // 13. ADD A SMALL LABEL
+        // --------------------------------------------------
+
+        const grid = new THREE.GridHelper(
+            20,
+            20,
+            0x555555,
+            0x333333
+        );
+
+        grid.position.y = 0.01;
+        scene.add(grid);
+
+        // --------------------------------------------------
+        // 14. TEXTURE SWITCHING
+        // --------------------------------------------------
+
+        let currentTexture = woodTexture;
+        let currentPattern = "Wood Pattern";
+
+        function changeTexture(texture, name, buttonId) {
+            currentTexture = texture;
+            currentPattern = name;
+
+            // Apply the selected texture to both objects.
+            material.map = texture;
+            material.needsUpdate = true;
+
+            sphereMaterial.map = texture;
+            sphereMaterial.needsUpdate = true;
+
+            // Update the floor separately.
+            const newFloorTexture = texture.clone();
+
+            newFloorTexture.wrapS = THREE.RepeatWrapping;
+            newFloorTexture.wrapT = THREE.RepeatWrapping;
+
+            newFloorTexture.repeat.set(4, 4);
+            newFloorTexture.needsUpdate = true;
+
+            floorMaterial.map = newFloorTexture;
+            floorMaterial.needsUpdate = true;
+
+            document.getElementById("status").textContent =
+                "Texture: " + name;
+
+            document.querySelectorAll("#controls button").forEach(
+                button => button.classList.remove("active")
+            );
+
+            document.getElementById(buttonId).classList.add("active");
+        }
+
+        document.getElementById("woodBtn").addEventListener(
+            "click",
+            () => changeTexture(
+                woodTexture,
+                "Wood Pattern",
+                "woodBtn"
+            )
+        );
+
+        document.getElementById("brickBtn").addEventListener(
+            "click",
+            () => changeTexture(
+                brickTexture,
+                "Brick Pattern",
+                "brickBtn"
+            )
+        );
+
+        document.getElementById("checkerBtn").addEventListener(
+            "click",
+            () => changeTexture(
+                checkerTexture,
+                "Checker Pattern",
+                "checkerBtn"
+            )
+        );
+
+        // --------------------------------------------------
+        // 15. TOGGLE BUMP MAP
+        // --------------------------------------------------
+
+        let bumpEnabled = false;
+
+        document.getElementById("bumpBtn").addEventListener(
+            "click",
+            () => {
+                bumpEnabled = !bumpEnabled;
+
+                material.bumpMap = bumpEnabled
+                    ? bumpTexture
+                    : null;
+
+                sphereMaterial.bumpMap = bumpEnabled
+                    ? bumpTexture
+                    : null;
+
+                material.bumpScale = 0.12;
+                sphereMaterial.bumpScale = 0.12;
+
+                document.getElementById("bumpBtn").textContent =
+                    bumpEnabled
+                        ? "Disable Bump Map"
+                        : "Enable Bump Map";
+
+                material.needsUpdate = true;
+                sphereMaterial.needsUpdate = true;
+            }
+        );
+
+        // --------------------------------------------------
+        // 16. TOGGLE ROUGHNESS MAP
+        // --------------------------------------------------
+
+        let roughnessEnabled = false;
+
+        document.getElementById("roughBtn").addEventListener(
+            "click",
+            () => {
+                roughnessEnabled = !roughnessEnabled;
+
+                material.roughnessMap = roughnessEnabled
+                    ? roughnessTexture
+                    : null;
+
+                sphereMaterial.roughnessMap = roughnessEnabled
+                    ? roughnessTexture
+                    : null;
+
+                document.getElementById("roughBtn").textContent =
+                    roughnessEnabled
+                        ? "Disable Roughness Map"
+                        : "Enable Roughness Map";
+
+                material.needsUpdate = true;
+                sphereMaterial.needsUpdate = true;
+            }
+        );
+
+        // --------------------------------------------------
+        // 17. ANIMATION
+        // --------------------------------------------------
+
+        let rotating = true;
+
+        document.getElementById("rotateBtn").addEventListener(
+            "click",
+            () => {
+                rotating = !rotating;
+
+                document.getElementById("rotateBtn").textContent =
+                    rotating
+                        ? "Pause Rotation"
+                        : "Resume Rotation";
+            }
+        );
+
+        // --------------------------------------------------
+        // 18. RESET THE SCENE
+        // --------------------------------------------------
+
+        document.getElementById("resetBtn").addEventListener(
+            "click",
+            () => {
+                cube.rotation.set(0, 0, 0);
+                sphere.rotation.set(0, 0, 0);
+
+                changeTexture(
+                    woodTexture,
+                    "Wood Pattern",
+                    "woodBtn"
+                );
+
+                bumpEnabled = false;
+                roughnessEnabled = false;
+
+                material.bumpMap = null;
+                sphereMaterial.bumpMap = null;
+
+                material.roughnessMap = null;
+                sphereMaterial.roughnessMap = null;
+
+                document.getElementById("bumpBtn").textContent =
+                    "Enable Bump Map";
+
+                document.getElementById("roughBtn").textContent =
+                    "Enable Roughness Map";
+            }
+        );
+
+        // --------------------------------------------------
+        // 19. ANIMATION LOOP
+        // --------------------------------------------------
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (rotating) {
+                cube.rotation.x += 0.005;
+                cube.rotation.y += 0.01;
+
+                sphere.rotation.y += 0.006;
+            }
+
+            controls.update();
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // --------------------------------------------------
+        // 20. HANDLE WINDOW RESIZING
+        // --------------------------------------------------
+
+        window.addEventListener("resize", () => {
+            camera.aspect =
+                window.innerWidth / window.innerHeight;
+
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(
+                window.innerWidth,
+                window.innerHeight
+            );
+        });
+    </script>
+
+</body>
+</html>
+```
