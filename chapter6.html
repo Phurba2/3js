@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Three.js - Chapter 6: Advanced Geometries</title>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #101018;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        #info {
+            position: absolute;
+            top: 15px;
+            left: 18px;
+            line-height: 1.7;
+            pointer-events: none;
+        }
+
+        #controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 205px;
+            padding: 15px;
+            background: rgba(20, 20, 35, 0.94);
+            border: 1px solid #555577;
+            border-radius: 8px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            background: #292945;
+            color: white;
+            border: 1px solid #7777aa;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #44446b;
+        }
+
+        #description {
+            min-height: 85px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #ccccdd;
+        }
+
+        #legend {
+            position: absolute;
+            bottom: 12px;
+            left: 15px;
+            font-size: 12px;
+            line-height: 1.7;
+            color: #ccccdd;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="info">
+        <strong>THREE.JS — CHAPTER 6</strong><br>
+        Exploring Advanced Geometries<br>
+        Click an object to inspect it
+    </div>
+
+    <div id="controls">
+        <strong>Advanced Geometry Lab</strong>
+
+        <p id="description">
+            Click any object to learn how its geometry is created.
+        </p>
+
+        <button id="wireframeButton">
+            Toggle Wireframe
+        </button>
+
+        <button id="edgesButton">
+            Toggle Geometry Edges
+        </button>
+
+        <button id="rotationButton">
+            Stop Rotation
+        </button>
+
+        <button id="resetButton">
+            Reset Scene
+        </button>
+    </div>
+
+    <div id="legend">
+        ROUNDED BOX · LATHE · EXTRUDE<br>
+        TUBE · CONVEX HULL
+    </div>
+
+    <script type="module">
+
+        import * as THREE from "three";
+
+        import { RoundedBoxGeometry }
+            from "three/addons/geometries/RoundedBoxGeometry.js";
+
+        import { ConvexGeometry }
+            from "three/addons/geometries/ConvexGeometry.js";
+
+
+        // ==========================================
+        // 1. CREATE THE SCENE
+        // ==========================================
+
+        const scene = new THREE.Scene();
+
+        scene.background = new THREE.Color(0x101018);
+
+
+        // ==========================================
+        // 2. CREATE THE CAMERA
+        // ==========================================
+
+        const camera = new THREE.PerspectiveCamera(
+            55,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            100
+        );
+
+        camera.position.set(0, 9, 17);
+
+        camera.lookAt(0, 1, 0);
+
+
+        // ==========================================
+        // 3. CREATE THE RENDERER
+        // ==========================================
+
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true
+        });
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+
+        renderer.setPixelRatio(
+            Math.min(window.devicePixelRatio, 2)
+        );
+
+        document.body.appendChild(renderer.domElement);
+
+
+        // ==========================================
+        // 4. ADD LIGHTS
+        // ==========================================
+
+        const ambientLight = new THREE.AmbientLight(
+            0xffffff,
+            1.5
+        );
+
+        scene.add(ambientLight);
+
+
+        const directionalLight = new THREE.DirectionalLight(
+            0xffffff,
+            2.5
+        );
+
+        directionalLight.position.set(5, 10, 7);
+
+        scene.add(directionalLight);
+
+
+        // ==========================================
+        // 5. CREATE MATERIALS
+        // ==========================================
+
+        function makeMaterial(color) {
+
+            return new THREE.MeshStandardMaterial({
+                color: color,
+                roughness: 0.4,
+                metalness: 0.15
+            });
+
+        }
+
+
+        // ==========================================
+        // 6. STORAGE FOR OBJECTS
+        // ==========================================
+
+        const objects = [];
+
+        const selectableObjects = [];
+
+        const descriptions = new Map();
+
+
+        function addObject(name, description, geometry, color, x, z) {
+
+            const material = makeMaterial(color);
+
+            const mesh = new THREE.Mesh(
+                geometry,
+                material
+            );
+
+            mesh.position.set(x, 1.3, z);
+
+            scene.add(mesh);
+
+            objects.push(mesh);
+
+            selectableObjects.push(mesh);
+
+            descriptions.set(mesh, {
+                name: name,
+                description: description
+            });
+
+            return mesh;
+
+        }
+
+
+        // ==========================================
+        // 7. ROUNDED BOX GEOMETRY
+        // ==========================================
+
+        const roundedBoxGeometry = new RoundedBoxGeometry(
+            2,
+            2,
+            2,
+            5,
+            0.25
+        );
+
+        const roundedBox = addObject(
+            "RoundedBoxGeometry",
+            "Creates a box with rounded corners. The final two arguments control corner subdivisions and corner radius.",
+            roundedBoxGeometry,
+            0x3399ff,
+            -5,
+            -2
+        );
+
+
+        // ==========================================
+        // 8. LATHE GEOMETRY
+        // ==========================================
+
+        // These points describe HALF of a vase's profile.
+        // Each point is a Vector2: (horizontal radius, height).
+
+        const vasePoints = [
+
+            new THREE.Vector2(0.0, 0.0),
+
+            new THREE.Vector2(0.5, 0.0),
+
+            new THREE.Vector2(0.7, 0.3),
+
+            new THREE.Vector2(0.45, 0.7),
+
+            new THREE.Vector2(0.3, 1.1),
+
+            new THREE.Vector2(0.35, 1.5),
+
+            new THREE.Vector2(0.6, 1.8),
+
+            new THREE.Vector2(0.65, 1.9)
+
+        ];
+
+
+        const latheGeometry = new THREE.LatheGeometry(
+            vasePoints,
+            48
+        );
+
+        const vase = addObject(
+            "LatheGeometry",
+            "Spins a 2D profile around the Y-axis to create a rotational shape, such as a vase, bottle, or goblet.",
+            latheGeometry,
+            0xffaa33,
+            -2.5,
+            -2
+        );
+
+
+        // ==========================================
+        // 9. EXTRUDE GEOMETRY
+        // ==========================================
+
+        // Draw a star-shaped 2D outline.
+
+        const starShape = new THREE.Shape();
+
+        const outerRadius = 1.0;
+
+        const innerRadius = 0.45;
+
+        for (let i = 0; i < 10; i++) {
+
+            const angle =
+                (i / 10) * Math.PI * 2 - Math.PI / 2;
+
+            const radius =
+                i % 2 === 0 ? outerRadius : innerRadius;
+
+            const x = Math.cos(angle) * radius;
+
+            const y = Math.sin(angle) * radius;
+
+            if (i === 0) {
+
+                starShape.moveTo(x, y);
+
+            } else {
+
+                starShape.lineTo(x, y);
+
+            }
+
+        }
+
+        starShape.closePath();
+
+
+        const extrudeGeometry = new THREE.ExtrudeGeometry(
+            starShape,
+            {
+                depth: 0.7,
+                bevelEnabled: true,
+                bevelSegments: 2,
+                bevelSize: 0.08,
+                bevelThickness: 0.08,
+                curveSegments: 12
+            }
+        );
+
+
+        const star = addObject(
+            "ExtrudeGeometry",
+            "Takes a 2D outline and extends it into 3D. Here, a star-shaped outline becomes a thick 3D star.",
+            extrudeGeometry,
+            0x44dd88,
+            0,
+            -2
+        );
+
+
+        // ==========================================
+        // 10. TUBE GEOMETRY
+        // ==========================================
+
+        // Create points describing a curved path.
+
+        const tubePoints = [
+
+            new THREE.Vector3(-1.2, 0, 0),
+
+            new THREE.Vector3(-0.8, 0.8, 0),
+
+            new THREE.Vector3(0, 1.2, 0),
+
+            new THREE.Vector3(0.8, 0.8, 0),
+
+            new THREE.Vector3(1.2, 0, 0),
+
+            new THREE.Vector3(0.8, -0.8, 0),
+
+            new THREE.Vector3(0, -1.2, 0),
+
+            new THREE.Vector3(-0.8, -0.8, 0)
+
+        ];
+
+
+        const tubeCurve = new THREE.CatmullRomCurve3(
+            tubePoints
+        );
+
+        tubeCurve.closed = true;
+
+
+        const tubeGeometry = new THREE.TubeGeometry(
+            tubeCurve,
+            100,
+            0.18,
+            12,
+            true
+        );
+
+
+        const tube = addObject(
+            "TubeGeometry",
+            "Builds a tube around a curve. Change the curve points to create different paths, such as pipes, cables, or tracks.",
+            tubeGeometry,
+            0xff66aa,
+            2.5,
+            -2
+        );
+
+
+        // ==========================================
+        // 11. CONVEX GEOMETRY
+        // ==========================================
+
+        // Create scattered points.
+
+        const hullPoints = [
+
+            new THREE.Vector3(-1, 0, -0.7),
+
+            new THREE.Vector3(1, 0, -0.8),
+
+            new THREE.Vector3(0.8, 1.4, -0.5),
+
+            new THREE.Vector3(-0.8, 1.2, -0.6),
+
+            new THREE.Vector3(-0.5, 0.3, 0.9),
+
+            new THREE.Vector3(0.7, 0.5, 0.8),
+
+            new THREE.Vector3(0, 1.8, 0.3),
+
+            new THREE.Vector3(0.2, -0.2, 0.1)
+
+        ];
+
+
+        const convexGeometry = new ConvexGeometry(
+            hullPoints
+        );
+
+
+        const hull = addObject(
+            "ConvexGeometry",
+            "Creates a convex hull that encloses a collection of 3D points, similar to stretching a tight sheet around them.",
+            convexGeometry,
+            0xbb77ff,
+            5,
+            -2
+        );
+
+
+        // ==========================================
+        // 12. FLOOR AND GRID
+        // ==========================================
+
+        const floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(200, 200),
+            new THREE.MeshStandardMaterial({
+                color: 0x252535,
+                roughness: 1
+            })
+        );
+
+        floor.rotation.x = -Math.PI / 2;
+
+        floor.position.y = 0;
+
+        scene.add(floor);
+
+
+        const grid = new THREE.GridHelper(
+            30,
+            30,
+            0x666688,
+            0x333344
+        );
+
+        grid.position.y = 0.01;
+
+        scene.add(grid);
+
+
+        // ==========================================
+        // 13. CLICK OBJECTS TO INSPECT THEM
+        // ==========================================
+
+        const raycaster = new THREE.Raycaster();
+
+        const mouse = new THREE.Vector2();
+
+        const descriptionElement =
+            document.getElementById("description");
+
+
+        renderer.domElement.addEventListener(
+            "click",
+            (event) => {
+
+                mouse.x =
+                    (event.clientX / window.innerWidth) * 2 - 1;
+
+                mouse.y =
+                    -(event.clientY / window.innerHeight) * 2 + 1;
+
+
+                raycaster.setFromCamera(mouse, camera);
+
+
+                const hits = raycaster.intersectObjects(
+                    selectableObjects
+                );
+
+
+                if (hits.length > 0) {
+
+                    const selected = hits[0].object;
+
+                    const info = descriptions.get(selected);
+
+                    descriptionElement.textContent =
+                        info.name + ": " + info.description;
+
+                }
+
+            }
+        );
+
+
+        // ==========================================
+        // 14. WIRE-FRAME VIEW
+        // ==========================================
+
+        let wireframeEnabled = false;
+
+
+        document.getElementById("wireframeButton")
+            .addEventListener("click", () => {
+
+                wireframeEnabled = !wireframeEnabled;
+
+
+                for (const object of objects) {
+
+                    object.material.wireframe =
+                        wireframeEnabled;
+
+                }
+
+            });
+
+
+        // ==========================================
+        // 15. SHOW GEOMETRY EDGES
+        // ==========================================
+
+        let edgesEnabled = false;
+
+        const edgeObjects = [];
+
+
+        for (const object of objects) {
+
+            const edgeGeometry = new THREE.EdgesGeometry(
+                object.geometry
+            );
+
+            const edgeMaterial = new THREE.LineBasicMaterial({
+                color: 0xffffff
+            });
+
+            const edgeLines = new THREE.LineSegments(
+                edgeGeometry,
+                edgeMaterial
+            );
+
+            object.add(edgeLines);
+
+            edgeObjects.push(edgeLines);
+
+        }
+
+
+        document.getElementById("edgesButton")
+            .addEventListener("click", () => {
+
+                edgesEnabled = !edgesEnabled;
+
+
+                for (const edge of edgeObjects) {
+
+                    edge.visible = edgesEnabled;
+
+                }
+
+            });
+
+
+        // ==========================================
+        // 16. ANIMATION
+        // ==========================================
+
+        let rotationEnabled = true;
+
+
+        document.getElementById("rotationButton")
+            .addEventListener("click", (event) => {
+
+                rotationEnabled = !rotationEnabled;
+
+                event.target.textContent =
+                    rotationEnabled
+                        ? "Stop Rotation"
+                        : "Start Rotation";
+
+            });
+
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+
+            if (rotationEnabled) {
+
+                roundedBox.rotation.y += 0.008;
+
+                vase.rotation.y += 0.008;
+
+                star.rotation.y += 0.008;
+
+                tube.rotation.y += 0.008;
+
+                hull.rotation.y += 0.008;
+
+            }
+
+
+            renderer.render(scene, camera);
+
+        }
+
+        animate();
+
+
+        // ==========================================
+        // 17. RESET THE SCENE
+        // ==========================================
+
+        document.getElementById("resetButton")
+            .addEventListener("click", () => {
+
+                for (const object of objects) {
+
+                    object.rotation.set(0, 0, 0);
+
+                    object.material.wireframe = false;
+
+                }
+
+
+                wireframeEnabled = false;
+
+                edgesEnabled = false;
+
+                for (const edge of edgeObjects) {
+
+                    edge.visible = false;
+
+                }
+
+
+                rotationEnabled = true;
+
+                document.getElementById("rotationButton")
+                    .textContent = "Stop Rotation";
+
+                descriptionElement.textContent =
+                    "Click any object to learn how its geometry is created.";
+
+            });
+
+
+        // ==========================================
+        // 18. HANDLE WINDOW RESIZING
+        // ==========================================
+
+        window.addEventListener("resize", () => {
+
+            camera.aspect =
+                window.innerWidth / window.innerHeight;
+
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(
+                window.innerWidth,
+                window.innerHeight
+            );
+
+        });
+
+    </script>
+
+</body>
+
+</html>
