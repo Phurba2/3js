@@ -1,0 +1,182 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js - Loading Image Textures</title>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #151515;
+        }
+
+        #info {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px;
+            border-radius: 8px;
+        }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+
+    <div id="info">
+        <h3>Loading Image Textures</h3>
+        <p>Drag to rotate the camera.</p>
+        <p id="status">Loading texture...</p>
+    </div>
+
+    <script type="module">
+        import * as THREE from "three";
+        import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+        // 1. Create the scene
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x222222);
+
+        // 2. Create the camera
+        const camera = new THREE.PerspectiveCamera(
+            60,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            100
+        );
+
+        camera.position.set(4, 3, 6);
+
+        // 3. Create the renderer
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true
+        });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+        document.body.appendChild(renderer.domElement);
+
+        // 4. Add lights
+        scene.add(
+            new THREE.AmbientLight(0xffffff, 1.5)
+        );
+
+        const light = new THREE.DirectionalLight(0xffffff, 3);
+        light.position.set(5, 8, 5);
+        scene.add(light);
+
+        // 5. Create camera controls
+        const controls = new OrbitControls(
+            camera,
+            renderer.domElement
+        );
+
+        controls.enableDamping = true;
+
+        // 6. Load the image
+        const textureLoader = new THREE.TextureLoader();
+
+        textureLoader.load(
+            "./textures/stone.jpeg",
+
+            // Runs when the image has loaded successfully
+            function (texture) {
+                texture.colorSpace = THREE.SRGBColorSpace;
+
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+
+                texture.repeat.set(2, 2);
+
+                // 7. Apply the texture to a material
+                const material = new THREE.MeshStandardMaterial({
+                    map: texture,
+                    roughness: 0.8
+                });
+
+                // 8. Create a cube
+                const geometry = new THREE.BoxGeometry(2, 2, 2);
+
+                const cube = new THREE.Mesh(geometry, material);
+
+                cube.castShadow = true;
+                cube.position.y = 1;
+
+                scene.add(cube);
+
+                document.getElementById("status").textContent =
+                    "Texture loaded successfully!";
+            },
+
+            // Runs while the image loads
+            function (progress) {
+                console.log("Loading texture...");
+            },
+
+            // Runs if the image fails to load
+            function (error) {
+                console.error("Texture loading failed:", error);
+
+                document.getElementById("status").textContent =
+                    "Could not load wood.jpg. Check the file path.";
+            }
+        );
+
+        // 9. Add a floor
+        const floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(12, 12),
+            new THREE.MeshStandardMaterial({
+                color: 0x777777,
+                roughness: 1
+            })
+        );
+
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -0.02;
+
+        scene.add(floor);
+
+        // 10. Animate and render
+        function animate() {
+            requestAnimationFrame(animate);
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // 11. Handle resizing
+        window.addEventListener("resize", () => {
+            camera.aspect =
+                window.innerWidth / window.innerHeight;
+
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(
+                window.innerWidth,
+                window.innerHeight
+            );
+        });
+    </script>
+
+</body>
+</html>
+
