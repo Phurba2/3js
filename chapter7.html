@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Three.js - Chapter 7: Points and Sprites</title>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"
+        }
+    }
+    </script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #050816;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #panel {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            width: 260px;
+            padding: 16px;
+            background: rgba(10, 15, 40, 0.85);
+            border: 1px solid #39446b;
+            border-radius: 12px;
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 20px;
+        }
+
+        p {
+            font-size: 13px;
+            line-height: 1.5;
+            color: #c7d2fe;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 8px;
+            padding: 10px;
+            border: 0;
+            border-radius: 6px;
+            background: #5145cd;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #7165f0;
+        }
+
+        #status {
+            margin-top: 12px;
+            color: #a5f3fc;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="panel">
+        <h2>Particle Universe</h2>
+
+        <p>
+            Chapter 7: Points and Sprites
+        </p>
+
+        <p>
+            Move your mouse to rotate the camera view.
+            Click a particle to inspect it.
+        </p>
+
+        <button id="togglePoints">Hide / Show Points</button>
+        <button id="toggleSprites">Hide / Show Sprites</button>
+        <button id="toggleAnimation">Pause Animation</button>
+        <button id="reset">Reset Scene</button>
+
+        <p id="status">Particles are moving...</p>
+    </div>
+
+    <script type="module">
+        import * as THREE from "three";
+
+        // ----------------------------------------
+        // 1. CREATE THE SCENE
+        // ----------------------------------------
+
+        const scene = new THREE.Scene();
+
+        scene.background = new THREE.Color(0x050816);
+
+        // ----------------------------------------
+        // 2. CREATE THE CAMERA
+        // ----------------------------------------
+
+        const camera = new THREE.PerspectiveCamera(
+            60,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+
+        camera.position.z = 30;
+
+        // ----------------------------------------
+        // 3. CREATE THE RENDERER
+        // ----------------------------------------
+
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true
+        });
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+
+        renderer.setPixelRatio(
+            Math.min(window.devicePixelRatio, 2)
+        );
+
+        document.body.appendChild(renderer.domElement);
+
+        // ----------------------------------------
+        // 4. CREATE PARTICLES
+        // ----------------------------------------
+
+        const particleCount = 3000;
+
+        const positions = new Float32Array(
+            particleCount * 3
+        );
+
+        const colors = new Float32Array(
+            particleCount * 3
+        );
+
+        const originalPositions = new Float32Array(
+            particleCount * 3
+        );
+
+        for (let i = 0; i < particleCount; i++) {
+
+            // Every particle needs three coordinates:
+            // X, Y and Z.
+
+            const i3 = i * 3;
+
+            const x = (Math.random() - 0.5) * 40;
+            const y = (Math.random() - 0.5) * 30;
+            const z = (Math.random() - 0.5) * 40;
+
+            positions[i3] = x;
+            positions[i3 + 1] = y;
+            positions[i3 + 2] = z;
+
+            // Save the original positions
+            // so we can reset the scene later.
+
+            originalPositions[i3] = x;
+            originalPositions[i3 + 1] = y;
+            originalPositions[i3 + 2] = z;
+
+            // Give each particle a random color.
+
+            colors[i3] = 0.4 + Math.random() * 0.6;
+            colors[i3 + 1] = 0.4 + Math.random() * 0.6;
+            colors[i3 + 2] = 0.7 + Math.random() * 0.3;
+        }
+
+        // Create a geometry that stores all particles.
+
+        const particleGeometry = new THREE.BufferGeometry();
+
+        particleGeometry.setAttribute(
+            "position",
+            new THREE.BufferAttribute(positions, 3)
+        );
+
+        particleGeometry.setAttribute(
+            "color",
+            new THREE.BufferAttribute(colors, 3)
+        );
+
+        // Material controls how the points look.
+
+        const particleMaterial = new THREE.PointsMaterial({
+            size: 0.12,
+            vertexColors: true,
+            sizeAttenuation: true
+        });
+
+        // Combine the geometry and material.
+
+        const particles = new THREE.Points(
+            particleGeometry,
+            particleMaterial
+        );
+
+        scene.add(particles);
+
+        // ----------------------------------------
+        // 5. CREATE A GLOW TEXTURE USING CANVAS
+        // ----------------------------------------
+
+        // We draw a white circle with a soft glow.
+        // No external image is required.
+
+        const textureCanvas = document.createElement("canvas");
+
+        textureCanvas.width = 128;
+        textureCanvas.height = 128;
+
+        const context = textureCanvas.getContext("2d");
+
+        const gradient = context.createRadialGradient(
+            64, 64, 0,
+            64, 64, 64
+        );
+
+        gradient.addColorStop(0, "rgba(255,255,255,1)");
+        gradient.addColorStop(0.2, "rgba(150,200,255,0.9)");
+        gradient.addColorStop(0.5, "rgba(80,120,255,0.3)");
+        gradient.addColorStop(1, "rgba(0,0,0,0)");
+
+        context.fillStyle = gradient;
+
+        context.fillRect(0, 0, 128, 128);
+
+        const glowTexture = new THREE.CanvasTexture(
+            textureCanvas
+        );
+
+        // ----------------------------------------
+        // 6. CREATE SPRITES
+        // ----------------------------------------
+
+        const sprites = [];
+
+        const spriteColors = [
+            0x55ccff,
+            0xff66cc,
+            0xffff66,
+            0x99ffcc,
+            0xffffff
+        ];
+
+        for (let i = 0; i < 30; i++) {
+
+            const spriteMaterial = new THREE.SpriteMaterial({
+                map: glowTexture,
+                color: spriteColors[
+                    Math.floor(Math.random() * spriteColors.length)
+                ],
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            const sprite = new THREE.Sprite(
+                spriteMaterial
+            );
+
+            // Random position in 3D space.
+
+            sprite.position.set(
+                (Math.random() - 0.5) * 35,
+                (Math.random() - 0.5) * 25,
+                (Math.random() - 0.5) * 30
+            );
+
+            // Set the width and height.
+
+            const size = 0.8 + Math.random() * 2;
+
+            sprite.scale.set(size, size, 1);
+
+            // Store the original position and size.
+
+            sprite.userData.originalPosition =
+                sprite.position.clone();
+
+            sprite.userData.originalSize = size;
+
+            sprites.push(sprite);
+
+            scene.add(sprite);
+        }
+
+        // ----------------------------------------
+        // 7. MOUSE INTERACTION
+        // ----------------------------------------
+
+        const raycaster = new THREE.Raycaster();
+
+        // Make the raycaster detect small points.
+
+        raycaster.params.Points.threshold = 0.3;
+
+        const mouse = new THREE.Vector2();
+
+        const status = document.getElementById("status");
+
+        renderer.domElement.addEventListener(
+            "pointerdown",
+            (event) => {
+
+                mouse.x =
+                    (event.clientX / window.innerWidth) * 2 - 1;
+
+                mouse.y =
+                    -(event.clientY / window.innerHeight) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+
+                const hits = raycaster.intersectObject(
+                    particles
+                );
+
+                if (hits.length > 0) {
+
+                    const particleIndex = hits[0].index;
+
+                    status.textContent =
+                        "You selected particle #" + particleIndex;
+
+                } else {
+
+                    status.textContent =
+                        "No particle selected. Try clicking a dot.";
+                }
+            }
+        );
+
+        // ----------------------------------------
+        // 8. MOUSE CAMERA MOVEMENT
+        // ----------------------------------------
+
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+
+        window.addEventListener("pointermove", (event) => {
+
+            targetRotationY =
+                (event.clientX / window.innerWidth - 0.5) * 0.5;
+
+            targetRotationX =
+                (event.clientY / window.innerHeight - 0.5) * 0.3;
+
+        });
+
+        // ----------------------------------------
+        // 9. BUTTONS
+        // ----------------------------------------
+
+        let animationRunning = true;
+
+        document.getElementById("togglePoints")
+            .addEventListener("click", () => {
+
+                particles.visible = !particles.visible;
+
+            });
+
+        document.getElementById("toggleSprites")
+            .addEventListener("click", () => {
+
+                sprites.forEach((sprite) => {
+                    sprite.visible = !sprite.visible;
+                });
+
+            });
+
+        document.getElementById("toggleAnimation")
+            .addEventListener("click", (event) => {
+
+                animationRunning = !animationRunning;
+
+                event.target.textContent = animationRunning
+                    ? "Pause Animation"
+                    : "Resume Animation";
+
+                status.textContent = animationRunning
+                    ? "Animation resumed."
+                    : "Animation paused.";
+
+            });
+
+        document.getElementById("reset")
+            .addEventListener("click", () => {
+
+                // Reset particle positions.
+
+                particleGeometry.attributes.position.array.set(
+                    originalPositions
+                );
+
+                particleGeometry.attributes.position
+                    .needsUpdate = true;
+
+                particles.rotation.set(0, 0, 0);
+
+                // Reset sprites.
+
+                sprites.forEach((sprite) => {
+
+                    sprite.position.copy(
+                        sprite.userData.originalPosition
+                    );
+
+                    const size = sprite.userData.originalSize;
+
+                    sprite.scale.set(size, size, 1);
+
+                });
+
+                targetRotationX = 0;
+                targetRotationY = 0;
+
+                status.textContent = "Scene reset.";
+
+            });
+
+        // ----------------------------------------
+        // 10. ANIMATION LOOP
+        // ----------------------------------------
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+            const elapsed = clock.getElapsedTime();
+
+            if (animationRunning) {
+
+                // Slowly rotate the entire particle cloud.
+
+                particles.rotation.y += 0.0008;
+
+                particles.rotation.x += 0.0002;
+
+                // Smoothly respond to mouse movement.
+
+                scene.rotation.y +=
+                    (targetRotationY - scene.rotation.y) * 0.02;
+
+                scene.rotation.x +=
+                    (targetRotationX - scene.rotation.x) * 0.02;
+
+                // Make sprites gently pulse.
+
+                sprites.forEach((sprite, index) => {
+
+                    const originalSize =
+                        sprite.userData.originalSize;
+
+                    const pulse =
+                        1 + Math.sin(elapsed * 2 + index) * 0.15;
+
+                    const size = originalSize * pulse;
+
+                    sprite.scale.set(size, size, 1);
+
+                });
+
+            }
+
+            renderer.render(scene, camera);
+
+        }
+
+        animate();
+
+        // ----------------------------------------
+        // 11. HANDLE WINDOW RESIZING
+        // ----------------------------------------
+
+        window.addEventListener("resize", () => {
+
+            camera.aspect =
+                window.innerWidth / window.innerHeight;
+
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(
+                window.innerWidth,
+                window.innerHeight
+            );
+
+        });
+
+    </script>
+
+</body>
+</html>
