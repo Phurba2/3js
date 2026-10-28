@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Three.js Chapter 9 - Animation and Camera</title>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #10131e;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #panel {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            width: 270px;
+            padding: 16px;
+            background: rgba(10, 15, 30, 0.9);
+            border: 1px solid #475569;
+            border-radius: 10px;
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        p {
+            color: #cbd5e1;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 7px;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background: #4f46e5;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #6366f1;
+        }
+
+        #status {
+            color: #86efac;
+        }
+
+        #help {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            padding: 10px;
+            background: rgba(10, 15, 30, 0.8);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="panel">
+        <h2>Animation Lab</h2>
+
+        <p>
+            Chapter 9: Animation and Moving the Camera
+        </p>
+
+        <p>
+            Drag to rotate the camera view.
+            Scroll to zoom. Right-click and drag to pan.
+        </p>
+
+        <button id="toggleAnimation">
+            Pause Animation
+        </button>
+
+        <button id="toggleOrbit">
+            Stop Object Orbit
+        </button>
+
+        <button id="reset">
+            Reset Scene
+        </button>
+
+        <p id="status">Animation is running.</p>
+    </div>
+
+    <div id="help">
+        Left mouse: rotate camera |
+        Scroll: zoom |
+        Right mouse: pan
+    </div>
+
+    <script type="module">
+
+        import * as THREE from "three";
+
+        import {
+            OrbitControls
+        } from "three/addons/controls/OrbitControls.js";
+
+
+        // ========================================
+        // 1. CREATE THE SCENE
+        // ========================================
+
+        const scene = new THREE.Scene();
+
+        scene.background = new THREE.Color(0x10131e);
+
+
+        // ========================================
+        // 2. CREATE THE CAMERA
+        // ========================================
+
+        const camera = new THREE.PerspectiveCamera(
+            60,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+
+        camera.position.set(8, 7, 12);
+
+
+        // ========================================
+        // 3. CREATE THE RENDERER
+        // ========================================
+
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true
+        });
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+
+        renderer.setPixelRatio(
+            Math.min(window.devicePixelRatio, 2)
+        );
+
+        renderer.shadowMap.enabled = true;
+
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        document.body.appendChild(renderer.domElement);
+
+
+        // ========================================
+        // 4. CAMERA CONTROLS
+        // ========================================
+
+        const controls = new OrbitControls(
+            camera,
+            renderer.domElement
+        );
+
+        controls.target.set(0, 1, 0);
+
+        controls.enableDamping = true;
+
+        controls.dampingFactor = 0.05;
+
+        controls.update();
+
+
+        // ========================================
+        // 5. LIGHTING
+        // ========================================
+
+        const ambientLight = new THREE.AmbientLight(
+            0xffffff,
+            1.5
+        );
+
+        scene.add(ambientLight);
+
+        const sunlight = new THREE.DirectionalLight(
+            0xffffff,
+            3
+        );
+
+        sunlight.position.set(5, 10, 5);
+
+        sunlight.castShadow = true;
+
+        scene.add(sunlight);
+
+
+        // ========================================
+        // 6. FLOOR AND GRID
+        // ========================================
+
+        const floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(100, 100),
+            new THREE.MeshStandardMaterial({
+                color: 0x20283a,
+                roughness: 0.9
+            })
+        );
+
+        floor.rotation.x = -Math.PI / 2;
+
+        floor.position.y = -0.05;
+
+        floor.receiveShadow = true;
+
+        scene.add(floor);
+
+        const grid = new THREE.GridHelper(
+            100,
+            50,
+            0x64748b,
+            0x334155
+        );
+
+        grid.position.y = -0.04;
+
+        scene.add(grid);
+
+
+        // ========================================
+        // 7. CREATE THE MAIN CUBE
+        // ========================================
+
+        const cubeGeometry = new THREE.BoxGeometry(
+            2,
+            2,
+            2
+        );
+
+        const cubeMaterial = new THREE.MeshStandardMaterial({
+            color: 0x4f8cff,
+            roughness: 0.35,
+            metalness: 0.15
+        });
+
+        const cube = new THREE.Mesh(
+            cubeGeometry,
+            cubeMaterial
+        );
+
+        cube.position.set(0, 1, 0);
+
+        cube.castShadow = true;
+
+        cube.receiveShadow = true;
+
+        scene.add(cube);
+
+
+        // ========================================
+        // 8. CREATE A SPHERE
+        // ========================================
+
+        const sphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.6, 32, 24),
+            new THREE.MeshStandardMaterial({
+                color: 0xff6655
+            })
+        );
+
+        sphere.position.set(4, 1, 0);
+
+        sphere.castShadow = true;
+
+        scene.add(sphere);
+
+
+        // ========================================
+        // 9. CREATE A CONE
+        // ========================================
+
+        const cone = new THREE.Mesh(
+            new THREE.ConeGeometry(0.7, 1.5, 32),
+            new THREE.MeshStandardMaterial({
+                color: 0xffcc44
+            })
+        );
+
+        cone.position.set(-4, 0.75, 0);
+
+        cone.castShadow = true;
+
+        scene.add(cone);
+
+
+        // ========================================
+        // 10. SAVE THE ORIGINAL VALUES
+        // ========================================
+
+        const originalCubePosition = cube.position.clone();
+
+        const originalCubeRotation = cube.rotation.clone();
+
+        const originalCubeScale = cube.scale.clone();
+
+        const originalSpherePosition = sphere.position.clone();
+
+        const originalConePosition = cone.position.clone();
+
+
+        // ========================================
+        // 11. ANIMATION SETTINGS
+        // ========================================
+
+        let animationRunning = true;
+
+        let orbitRunning = true;
+
+        const clock = new THREE.Clock();
+
+        let elapsedTime = 0;
+
+
+        // ========================================
+        // 12. ANIMATION BUTTON
+        // ========================================
+
+        const animationButton =
+            document.getElementById("toggleAnimation");
+
+        animationButton.addEventListener("click", () => {
+
+            animationRunning = !animationRunning;
+
+            if (animationRunning) {
+
+                // Prevent a large time jump after resuming.
+
+                clock.getDelta();
+
+                animationButton.textContent = "Pause Animation";
+
+                status.textContent = "Animation resumed.";
+
+            } else {
+
+                animationButton.textContent = "Resume Animation";
+
+                status.textContent = "Animation paused.";
+            }
+        });
+
+
+        // ========================================
+        // 13. ORBIT BUTTON
+        // ========================================
+
+        const orbitButton =
+            document.getElementById("toggleOrbit");
+
+        orbitButton.addEventListener("click", () => {
+
+            orbitRunning = !orbitRunning;
+
+            orbitButton.textContent = orbitRunning
+                ? "Stop Object Orbit"
+                : "Start Object Orbit";
+
+            status.textContent = orbitRunning
+                ? "Sphere orbit enabled."
+                : "Sphere orbit disabled.";
+        });
+
+
+        // ========================================
+        // 14. RESET BUTTON
+        // ========================================
+
+        document.getElementById("reset")
+            .addEventListener("click", () => {
+
+                // Restore the main cube.
+
+                cube.position.copy(originalCubePosition);
+
+                cube.rotation.copy(originalCubeRotation);
+
+                cube.scale.copy(originalCubeScale);
+
+                // Restore the other objects.
+
+                sphere.position.copy(originalSpherePosition);
+
+                cone.position.copy(originalConePosition);
+
+                // Reset the elapsed animation time.
+
+                elapsedTime = 0;
+
+                // Reset the camera.
+
+                camera.position.set(8, 7, 12);
+
+                controls.target.set(0, 1, 0);
+
+                controls.update();
+
+                status.textContent = "Scene reset.";
+            });
+
+
+        // ========================================
+        // 15. ANIMATION LOOP
+        // ========================================
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+            // Get the time since the previous frame.
+
+            const delta = clock.getDelta();
+
+            if (animationRunning) {
+
+                elapsedTime += delta;
+
+                // Rotate the cube.
+
+                cube.rotation.x += delta * 0.5;
+
+                cube.rotation.y += delta * 0.8;
+
+                // Make the cube move up and down.
+
+                cube.position.y =
+                    1 + Math.sin(elapsedTime * 2) * 0.5;
+
+                // Make the cube gently grow and shrink.
+
+                const scale =
+                    1 + Math.sin(elapsedTime * 2) * 0.1;
+
+                cube.scale.set(scale, scale, scale);
+
+                // Rotate the cone.
+
+                cone.rotation.y += delta * 1.2;
+
+                // Move the sphere in a circular path.
+
+                if (orbitRunning) {
+
+                    const radius = 4;
+
+                    sphere.position.x =
+                        Math.cos(elapsedTime) * radius;
+
+                    sphere.position.z =
+                        Math.sin(elapsedTime) * radius;
+
+                }
+            }
+
+            // Update camera controls each frame.
+
+            controls.update();
+
+            // Render the scene.
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+
+        // ========================================
+        // 16. WINDOW RESIZING
+        // ========================================
+
+        window.addEventListener("resize", () => {
+
+            camera.aspect =
+                window.innerWidth / window.innerHeight;
+
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(
+                window.innerWidth,
+                window.innerHeight
+            );
+        });
+
+
+        // ========================================
+        // 17. STATUS ELEMENT
+        // ========================================
+
+        const status = document.getElementById("status");
+
+    </script>
+
+</body>
+</html>
