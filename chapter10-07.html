@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js - Canvas Texture</title>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #101522;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        #info {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            padding: 14px;
+            max-width: 340px;
+            background: rgba(0, 0, 0, 0.75);
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+
+        button {
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+
+<div id="info">
+    <h2>Canvas Texture Lab</h2>
+
+    <p>
+        This cube's texture is drawn entirely with JavaScript.
+        No image file is needed.
+    </p>
+
+    <button id="changeButton">Change Pattern</button>
+
+    <p>Drag to rotate the camera. Scroll to zoom.</p>
+</div>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // 1. Create the scene
+    const scene = new THREE.Scene();
+
+    scene.background = new THREE.Color(0x101522);
+
+    // 2. Create the camera
+    const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+    );
+
+    camera.position.set(3, 2, 5);
+
+    // 3. Create the renderer
+    const renderer = new THREE.WebGLRenderer({
+        antialias: true
+    });
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, 2)
+    );
+
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    document.body.appendChild(renderer.domElement);
+
+    // 4. Camera controls
+    const controls = new OrbitControls(
+        camera,
+        renderer.domElement
+    );
+
+    controls.enableDamping = true;
+
+    // 5. Create a canvas
+    const canvas = document.createElement('canvas');
+
+    canvas.width = 512;
+    canvas.height = 512;
+
+    const ctx = canvas.getContext('2d');
+
+    // 6. Draw the texture
+    function drawPattern(patternNumber) {
+
+        // Background gradient
+        const gradient = ctx.createLinearGradient(
+            0, 0, 512, 512
+        );
+
+        if (patternNumber === 0) {
+            gradient.addColorStop(0, '#06b6d4');
+            gradient.addColorStop(1, '#312e81');
+        } else {
+            gradient.addColorStop(0, '#f97316');
+            gradient.addColorStop(1, '#9f1239');
+        }
+
+        ctx.fillStyle = gradient;
+
+        ctx.fillRect(0, 0, 512, 512);
+
+        // Draw grid lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        ctx.lineWidth = 2;
+
+        for (let x = 0; x <= 512; x += 64) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, 512);
+            ctx.stroke();
+        }
+
+        for (let y = 0; y <= 512; y += 64) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(512, y);
+            ctx.stroke();
+        }
+
+        // Draw circles
+        for (let x = 64; x < 512; x += 128) {
+            for (let y = 64; y < 512; y += 128) {
+
+                ctx.beginPath();
+
+                ctx.arc(
+                    x,
+                    y,
+                    patternNumber === 0 ? 25 : 35,
+                    0,
+                    Math.PI * 2
+                );
+
+                ctx.fillStyle = '#facc15';
+                ctx.fill();
+
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+            }
+        }
+
+        // Draw text
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        ctx.font = 'bold 54px Arial';
+
+        ctx.fillText(
+            patternNumber === 0 ? 'THREE.JS' : 'CANVAS',
+            256,
+            256
+        );
+
+        // Tell Three.js the canvas has changed
+        canvasTexture.needsUpdate = true;
+    }
+
+    // 7. Convert canvas into a texture
+    const canvasTexture = new THREE.CanvasTexture(canvas);
+
+    canvasTexture.colorSpace = THREE.SRGBColorSpace;
+
+    // Draw the initial pattern after the texture exists
+    let patternNumber = 0;
+
+    drawPattern(patternNumber);
+
+    // 8. Create a material using the texture
+    const material = new THREE.MeshStandardMaterial({
+        map: canvasTexture,
+        roughness: 0.45,
+        metalness: 0.1
+    });
+
+    // 9. Create the cube
+    const geometry = new THREE.BoxGeometry(2, 2, 2);
+
+    const cube = new THREE.Mesh(
+        geometry,
+        material
+    );
+
+    scene.add(cube);
+
+    // 10. Add lights
+    const ambientLight = new THREE.AmbientLight(
+        0xffffff,
+        1.5
+    );
+
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(
+        0xffffff,
+        3
+    );
+
+    directionalLight.position.set(4, 5, 5);
+
+    scene.add(directionalLight);
+
+    // 11. Change the texture when the button is clicked
+    document.getElementById('changeButton').addEventListener(
+        'click',
+        () => {
+            patternNumber = 1 - patternNumber;
+
+            drawPattern(patternNumber);
+        }
+    );
+
+    // 12. Animate
+    function animate() {
+        requestAnimationFrame(animate);
+
+        cube.rotation.x += 0.004;
+        cube.rotation.y += 0.007;
+
+        controls.update();
+
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // 13. Resize handling
+    window.addEventListener('resize', () => {
+        camera.aspect =
+            window.innerWidth / window.innerHeight;
+
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+    });
+</script>
+
+</body>
+</html>
+

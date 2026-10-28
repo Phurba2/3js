@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js - AO and Lightmap Lab</title>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            color: white;
+            background: #101827;
+        }
+
+        #panel {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            width: 270px;
+            padding: 16px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.78);
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 8px;
+            border: 0;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        p {
+            line-height: 1.5;
+            font-size: 14px;
+        }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+
+<div id="panel">
+    <h2>AO & Lightmap Lab</h2>
+
+    <p>
+        Compare ambient occlusion and baked lighting.
+        Drag the mouse to rotate the view.
+    </p>
+
+    <button id="aoButton">Ambient Occlusion: ON</button>
+    <button id="lightButton">Lightmap: ON</button>
+    <button id="rotateButton">Rotation: ON</button>
+
+    <p id="status">Preparing textures...</p>
+</div>
+
+<script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from
+        "three/addons/controls/OrbitControls.js";
+
+    // 1. Scene
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x101827);
+
+    // 2. Camera
+    const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+    );
+
+    camera.position.set(0, 1, 4);
+
+    // 3. Renderer
+    const renderer = new THREE.WebGLRenderer({
+        antialias: true
+    });
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, 2)
+    );
+
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    document.body.appendChild(renderer.domElement);
+
+    // 4. Camera controls
+    const controls = new OrbitControls(
+        camera,
+        renderer.domElement
+    );
+
+    controls.enableDamping = true;
+
+    // 5. Lights
+    scene.add(
+        new THREE.AmbientLight(0xffffff, 1.3)
+    );
+
+    const sun = new THREE.DirectionalLight(
+        0xffffff,
+        2.5
+    );
+
+    sun.position.set(3, 5, 4);
+    scene.add(sun);
+
+    // 6. Helper: create a grayscale canvas texture
+    function createGrayTexture(drawFunction) {
+        const canvas = document.createElement("canvas");
+
+        canvas.width = 512;
+        canvas.height = 512;
+
+        const ctx = canvas.getContext("2d");
+
+        drawFunction(ctx);
+
+        const texture = new THREE.CanvasTexture(canvas);
+
+        // These are data maps, not color images.
+        texture.colorSpace = THREE.NoColorSpace;
+
+        return texture;
+    }
+
+    // 7. Create an ambient occlusion map.
+    // Darker edges and corners simulate occlusion.
+    const aoTexture = createGrayTexture(function (ctx) {
+        ctx.fillStyle = "rgb(255,255,255)";
+        ctx.fillRect(0, 0, 512, 512);
+
+        const gradient = ctx.createRadialGradient(
+            256, 256, 80,
+            256, 256, 360
+        );
+
+        gradient.addColorStop(
+            0, "rgb(255,255,255)"
+        );
+
+        gradient.addColorStop(
+            0.65, "rgb(180,180,180)"
+        );
+
+        gradient.addColorStop(
+            1, "rgb(35,35,35)"
+        );
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 512, 512);
+    });
+
+    // 8. Create a lightmap.
+    // This gradient represents stored lighting.
+    const lightTexture = createGrayTexture(function (ctx) {
+        const gradient = ctx.createLinearGradient(
+            0, 0, 512, 512
+        );
+
+        gradient.addColorStop(
+            0, "rgb(255,255,255)"
+        );
+
+        gradient.addColorStop(
+            0.5, "rgb(210,210,210)"
+        );
+
+        gradient.addColorStop(
+            1, "rgb(90,90,90)"
+        );
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 512, 512);
+
+        // Draw a simulated shadow.
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath();
+        ctx.ellipse(
+            340, 350, 120, 70, -0.4, 0, Math.PI * 2
+        );
+        ctx.fill();
+    });
+
+    // 9. Create the sphere.
+    const geometry = new THREE.SphereGeometry(
+        1.2,
+        96,
+        96
+    );
+
+    // AO and light maps need a second UV attribute.
+    // For this demonstration, reuse the sphere's UV coordinates.
+    const uv = geometry.getAttribute("uv");
+
+    geometry.setAttribute(
+        "uv2",
+        new THREE.BufferAttribute(
+            new Float32Array(uv.array),
+            2
+        )
+    );
+
+    // 10. Material
+    const material = new THREE.MeshStandardMaterial({
+        color: 0xd8b58a,
+        roughness: 0.9,
+        aoMap: aoTexture,
+        aoMapIntensity: 1.5,
+        lightMap: lightTexture,
+        lightMapIntensity: 1
+    });
+
+    const sphere = new THREE.Mesh(
+        geometry,
+        material
+    );
+
+    scene.add(sphere);
+
+    // 11. Floor
+    const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(200, 200),
+        new THREE.MeshStandardMaterial({
+            color: 0x29374a,
+            roughness: 1
+        })
+    );
+
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -1.6;
+
+    scene.add(floor);
+
+    // 12. Buttons
+    let aoEnabled = true;
+    let lightEnabled = true;
+    let rotating = true;
+
+    const aoButton = document.getElementById("aoButton");
+    const lightButton = document.getElementById("lightButton");
+    const rotateButton = document.getElementById("rotateButton");
+
+    aoButton.addEventListener("click", function () {
+        aoEnabled = !aoEnabled;
+
+        material.aoMap = aoEnabled ? aoTexture : null;
+
+        aoButton.textContent =
+            `Ambient Occlusion: ${aoEnabled ? "ON" : "OFF"}`;
+    });
+
+    lightButton.addEventListener("click", function () {
+        lightEnabled = !lightEnabled;
+
+        material.lightMap = lightEnabled ? lightTexture : null;
+
+        lightButton.textContent =
+            `Lightmap: ${lightEnabled ? "ON" : "OFF"}`;
+    });
+
+    rotateButton.addEventListener("click", function () {
+        rotating = !rotating;
+
+        rotateButton.textContent =
+            `Rotation: ${rotating ? "ON" : "OFF"}`;
+    });
+
+    document.getElementById("status").textContent =
+        "Textures ready. Toggle the maps to compare them.";
+
+    // 13. Animation
+    function animate() {
+        requestAnimationFrame(animate);
+
+        if (rotating) {
+            sphere.rotation.y += 0.004;
+        }
+
+        controls.update();
+
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // 14. Resize
+    window.addEventListener("resize", function () {
+        camera.aspect =
+            window.innerWidth / window.innerHeight;
+
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+    });
+</script>
+
+</body>
+</html>
+

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js - Video Texture</title>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #101522;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        #info {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            max-width: 340px;
+            padding: 14px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+
+        button {
+            padding: 9px 14px;
+            margin: 4px 4px 4px 0;
+            cursor: pointer;
+        }
+
+        #status {
+            color: #93c5fd;
+        }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+
+<div id="info">
+    <h2>Video Texture Lab</h2>
+
+    <p>
+        The video plays directly on the surface of a 3D plane.
+    </p>
+
+    <button id="playButton">Play Video</button>
+    <button id="pauseButton">Pause Video</button>
+
+    <p id="status">Waiting for video...</p>
+
+    <p>Drag to rotate the camera. Scroll to zoom.</p>
+</div>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // ----------------------------------
+    // 1. Create the scene
+    // ----------------------------------
+
+    const scene = new THREE.Scene();
+
+    scene.background = new THREE.Color(0x101522);
+
+    // ----------------------------------
+    // 2. Create the camera
+    // ----------------------------------
+
+    const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+    );
+
+    camera.position.set(0, 0, 7);
+
+    // ----------------------------------
+    // 3. Create the renderer
+    // ----------------------------------
+
+    const renderer = new THREE.WebGLRenderer({
+        antialias: true
+    });
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, 2)
+    );
+
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    document.body.appendChild(renderer.domElement);
+
+    // ----------------------------------
+    // 4. Camera controls
+    // ----------------------------------
+
+    const controls = new OrbitControls(
+        camera,
+        renderer.domElement
+    );
+
+    controls.enableDamping = true;
+
+    // ----------------------------------
+    // 5. Create the HTML video element
+    // ----------------------------------
+
+    const video = document.createElement('video');
+
+    video.src = './videos/sample.mp4';
+
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+
+    // ----------------------------------
+    // 6. Convert video into a texture
+    // ----------------------------------
+
+    const videoTexture = new THREE.VideoTexture(video);
+
+    videoTexture.colorSpace = THREE.SRGBColorSpace;
+
+    // ----------------------------------
+    // 7. Create a material
+    // ----------------------------------
+
+    const videoMaterial = new THREE.MeshBasicMaterial({
+        map: videoTexture,
+        side: THREE.DoubleSide
+    });
+
+    // MeshBasicMaterial does not need lights.
+    // The video colors display directly.
+
+    // ----------------------------------
+    // 8. Create the video screen
+    // ----------------------------------
+
+    const screenGeometry = new THREE.PlaneGeometry(
+        6,
+        3.375
+    );
+
+    const screen = new THREE.Mesh(
+        screenGeometry,
+        videoMaterial
+    );
+
+    scene.add(screen);
+
+    // ----------------------------------
+    // 9. Play and pause controls
+    // ----------------------------------
+
+    const status = document.getElementById('status');
+
+    document.getElementById('playButton').addEventListener(
+        'click',
+        async () => {
+            try {
+                await video.play();
+
+                status.textContent = 'Video playing';
+            } catch (error) {
+                status.textContent =
+                    'Could not play video. Check the file and codec.';
+
+                console.error('Video playback error:', error);
+            }
+        }
+    );
+
+    document.getElementById('pauseButton').addEventListener(
+        'click',
+        () => {
+            video.pause();
+
+            status.textContent = 'Video paused';
+        }
+    );
+
+    video.addEventListener('error', () => {
+        status.textContent =
+            'Video failed to load. Check videos/sample.mp4';
+
+        console.error('Video error:', video.error);
+    });
+
+    video.addEventListener('loadeddata', () => {
+        status.textContent =
+            'Video loaded. Click Play Video.';
+    });
+
+    // ----------------------------------
+    // 10. Animate
+    // ----------------------------------
+
+    function animate() {
+        requestAnimationFrame(animate);
+
+        controls.update();
+
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // ----------------------------------
+    // 11. Handle window resizing
+    // ----------------------------------
+
+    window.addEventListener('resize', () => {
+        camera.aspect =
+            window.innerWidth / window.innerHeight;
+
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+    });
+</script>
+
+</body>
+</html>
+

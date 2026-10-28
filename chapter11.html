@@ -1,0 +1,333 @@
+o
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Chapter 11 - Postprocessing</title>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #050505;
+            font-family: Arial, sans-serif;
+        }
+
+        #info {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            color: white;
+            background: rgba(0, 0, 0, 0.65);
+            padding: 14px;
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+
+<div id="info">
+    <strong>Chapter 11: Postprocessing</strong><br>
+    Effect: Bloom<br>
+    Bright objects produce a glow.
+</div>
+
+<script type="module">
+
+import * as THREE from 'three';
+
+import { OrbitControls } from
+    'three/addons/controls/OrbitControls.js';
+
+import { EffectComposer } from
+    'three/addons/postprocessing/EffectComposer.js';
+
+import { RenderPass } from
+    'three/addons/postprocessing/RenderPass.js';
+
+import { UnrealBloomPass } from
+    'three/addons/postprocessing/UnrealBloomPass.js';
+
+
+// --------------------------------------------------
+// 1. CREATE THE SCENE
+// --------------------------------------------------
+
+const scene = new THREE.Scene();
+
+scene.background = new THREE.Color(0x050510);
+
+
+// --------------------------------------------------
+// 2. CREATE THE CAMERA
+// --------------------------------------------------
+
+const camera = new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    100
+);
+
+camera.position.set(0, 2, 8);
+
+
+// --------------------------------------------------
+// 3. CREATE THE RENDERER
+// --------------------------------------------------
+
+const renderer = new THREE.WebGLRenderer({
+    antialias: true
+});
+
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
+
+renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, 2)
+);
+
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+document.body.appendChild(renderer.domElement);
+
+
+// --------------------------------------------------
+// 4. CREATE THE POSTPROCESSING COMPOSER
+// --------------------------------------------------
+
+const composer = new EffectComposer(renderer);
+
+
+// --------------------------------------------------
+// 5. ADD THE NORMAL RENDER PASS
+// --------------------------------------------------
+
+const renderPass = new RenderPass(scene, camera);
+
+composer.addPass(renderPass);
+
+
+// --------------------------------------------------
+// 6. ADD THE BLOOM EFFECT
+// --------------------------------------------------
+
+const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(
+        window.innerWidth,
+        window.innerHeight
+    ),
+    1.5,   // Strength: intensity of the glow
+    0.4,   // Radius: spread of the glow
+    0.85   // Threshold: brightness needed to glow
+);
+
+composer.addPass(bloomPass);
+
+
+// --------------------------------------------------
+// 7. ADD LIGHTING
+// --------------------------------------------------
+
+const ambientLight = new THREE.AmbientLight(
+    0xffffff,
+    0.5
+);
+
+scene.add(ambientLight);
+
+const pointLight = new THREE.PointLight(
+    0xffffff,
+    30
+);
+
+pointLight.position.set(0, 3, 3);
+
+scene.add(pointLight);
+
+
+// --------------------------------------------------
+// 8. CREATE A NORMAL CUBE
+// --------------------------------------------------
+
+const cubeGeometry = new THREE.BoxGeometry(
+    1.5,
+    1.5,
+    1.5
+);
+
+const cubeMaterial = new THREE.MeshStandardMaterial({
+    color: 0x3388ff,
+    metalness: 0.2,
+    roughness: 0.3
+});
+
+const cube = new THREE.Mesh(
+    cubeGeometry,
+    cubeMaterial
+);
+
+cube.position.x = -2;
+
+scene.add(cube);
+
+
+// --------------------------------------------------
+// 9. CREATE A BRIGHT SPHERE
+// --------------------------------------------------
+
+const sphereGeometry = new THREE.SphereGeometry(
+    0.9,
+    48,
+    48
+);
+
+const sphereMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffffff
+});
+
+const sphere = new THREE.Mesh(
+    sphereGeometry,
+    sphereMaterial
+);
+
+sphere.position.x = 1.5;
+
+scene.add(sphere);
+
+
+// --------------------------------------------------
+// 10. CREATE SMALL GLOWING OBJECTS
+// --------------------------------------------------
+
+const colors = [
+    0xff2244,
+    0x22ff88,
+    0x3388ff,
+    0xffaa22
+];
+
+const glowingObjects = [];
+
+for (let i = 0; i < colors.length; i++) {
+
+    const geometry = new THREE.SphereGeometry(
+        0.25,
+        24,
+        24
+    );
+
+    const material = new THREE.MeshBasicMaterial({
+        color: colors[i]
+    });
+
+    const object = new THREE.Mesh(
+        geometry,
+        material
+    );
+
+    object.position.set(
+        -3 + i * 2,
+        -1.8,
+        0
+    );
+
+    scene.add(object);
+
+    glowingObjects.push(object);
+}
+
+
+// --------------------------------------------------
+// 11. ADD ORBIT CONTROLS
+// --------------------------------------------------
+
+const controls = new OrbitControls(
+    camera,
+    renderer.domElement
+);
+
+controls.enableDamping = true;
+
+
+// --------------------------------------------------
+// 12. ANIMATION LOOP
+// --------------------------------------------------
+
+function animate() {
+
+    requestAnimationFrame(animate);
+
+    cube.rotation.x += 0.005;
+    cube.rotation.y += 0.01;
+
+    sphere.rotation.y += 0.008;
+
+    glowingObjects.forEach((object, index) => {
+        object.rotation.y += 0.01;
+
+        object.position.y =
+            -1.8 + Math.sin(
+                performance.now() * 0.001 + index
+            ) * 0.15;
+    });
+
+    controls.update();
+
+    // IMPORTANT:
+    // Use composer.render(), not renderer.render().
+
+    composer.render();
+}
+
+animate();
+
+
+// --------------------------------------------------
+// 13. HANDLE WINDOW RESIZING
+// --------------------------------------------------
+
+window.addEventListener('resize', () => {
+
+    camera.aspect =
+        window.innerWidth / window.innerHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    composer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    bloomPass.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+});
+
+</script>
+
+</body>
+</html>
+

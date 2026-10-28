@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Chapter 11 - Multiple Effects</title>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #101018;
+            font-family: Arial, sans-serif;
+        }
+
+        #panel {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 10;
+            padding: 15px;
+            color: white;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 8px;
+            max-width: 290px;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            margin-top: 8px;
+            padding: 9px;
+            cursor: pointer;
+        }
+
+        #status {
+            margin-top: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+
+<div id="panel">
+    <strong>Multiple Postprocessing Effects</strong>
+
+    <button id="dotButton">Toggle Dot Screen</button>
+    <button id="rgbButton">Toggle RGB Shift</button>
+    <button id="bothButton">Enable Both Effects</button>
+    <button id="resetButton">Reset Effects</button>
+
+    <div id="status"></div>
+</div>
+
+<script type="module">
+
+import * as THREE from 'three';
+
+import { OrbitControls } from
+    'three/addons/controls/OrbitControls.js';
+
+import { EffectComposer } from
+    'three/addons/postprocessing/EffectComposer.js';
+
+import { RenderPass } from
+    'three/addons/postprocessing/RenderPass.js';
+
+import { ShaderPass } from
+    'three/addons/postprocessing/ShaderPass.js';
+
+import { DotScreenShader } from
+    'three/addons/shaders/DotScreenShader.js';
+
+import { RGBShiftShader } from
+    'three/addons/shaders/RGBShiftShader.js';
+
+
+// --------------------------------------------------
+// 1. SCENE
+// --------------------------------------------------
+
+const scene = new THREE.Scene();
+
+scene.background = new THREE.Color(0x101018);
+
+
+// --------------------------------------------------
+// 2. CAMERA
+// --------------------------------------------------
+
+const camera = new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    100
+);
+
+camera.position.set(0, 2, 8);
+
+
+// --------------------------------------------------
+// 3. RENDERER
+// --------------------------------------------------
+
+const renderer = new THREE.WebGLRenderer({
+    antialias: true
+});
+
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
+
+renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, 2)
+);
+
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+document.body.appendChild(renderer.domElement);
+
+
+// --------------------------------------------------
+// 4. CREATE THE COMPOSER
+// --------------------------------------------------
+
+const composer = new EffectComposer(renderer);
+
+
+// --------------------------------------------------
+// 5. FIRST PASS: RENDER THE SCENE
+// --------------------------------------------------
+
+const renderPass = new RenderPass(scene, camera);
+
+composer.addPass(renderPass);
+
+
+// --------------------------------------------------
+// 6. SECOND PASS: DOT SCREEN
+// --------------------------------------------------
+
+const dotPass = new ShaderPass(DotScreenShader);
+
+dotPass.uniforms['scale'].value = 3;
+
+dotPass.enabled = false;
+
+composer.addPass(dotPass);
+
+
+// --------------------------------------------------
+// 7. THIRD PASS: RGB SHIFT
+// --------------------------------------------------
+
+const rgbPass = new ShaderPass(RGBShiftShader);
+
+rgbPass.uniforms['amount'].value = 0.003;
+
+rgbPass.uniforms['angle'].value = 0.5;
+
+rgbPass.enabled = false;
+
+composer.addPass(rgbPass);
+
+
+// --------------------------------------------------
+// 8. LIGHTING
+// --------------------------------------------------
+
+scene.add(
+    new THREE.AmbientLight(0xffffff, 1.5)
+);
+
+const light = new THREE.DirectionalLight(
+    0xffffff,
+    3
+);
+
+light.position.set(4, 6, 5);
+
+scene.add(light);
+
+
+// --------------------------------------------------
+// 9. CREATE A COLORFUL CUBE
+// --------------------------------------------------
+
+const cube = new THREE.Mesh(
+    new THREE.BoxGeometry(1.8, 1.8, 1.8),
+    new THREE.MeshStandardMaterial({
+        color: 0x3388ff,
+        roughness: 0.35,
+        metalness: 0.2
+    })
+);
+
+cube.position.x = -1.5;
+
+scene.add(cube);
+
+
+// --------------------------------------------------
+// 10. CREATE A SPHERE
+// --------------------------------------------------
+
+const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 48, 48),
+    new THREE.MeshStandardMaterial({
+        color: 0xff3355,
+        roughness: 0.25,
+        metalness: 0.1
+    })
+);
+
+sphere.position.x = 1.5;
+
+scene.add(sphere);
+
+
+// --------------------------------------------------
+// 11. CREATE A TORUS
+// --------------------------------------------------
+
+const torus = new THREE.Mesh(
+    new THREE.TorusGeometry(0.7, 0.25, 16, 80),
+    new THREE.MeshStandardMaterial({
+        color: 0x33ffaa,
+        roughness: 0.3,
+        metalness: 0.3
+    })
+);
+
+torus.position.set(0, 2.2, 0);
+
+scene.add(torus);
+
+
+// --------------------------------------------------
+// 12. ORBIT CONTROLS
+// --------------------------------------------------
+
+const controls = new OrbitControls(
+    camera,
+    renderer.domElement
+);
+
+controls.enableDamping = true;
+
+
+// --------------------------------------------------
+// 13. UPDATE THE STATUS TEXT
+// --------------------------------------------------
+
+function updateStatus() {
+
+    document.getElementById('status').innerHTML =
+        'Dot Screen: ' +
+        (dotPass.enabled ? 'ON' : 'OFF') +
+        '<br>RGB Shift: ' +
+        (rgbPass.enabled ? 'ON' : 'OFF');
+}
+
+updateStatus();
+
+
+// --------------------------------------------------
+// 14. BUTTONS
+// --------------------------------------------------
+
+document.getElementById('dotButton').addEventListener(
+    'click',
+    () => {
+
+        dotPass.enabled = !dotPass.enabled;
+
+        updateStatus();
+    }
+);
+
+
+document.getElementById('rgbButton').addEventListener(
+    'click',
+    () => {
+
+        rgbPass.enabled = !rgbPass.enabled;
+
+        updateStatus();
+    }
+);
+
+
+document.getElementById('bothButton').addEventListener(
+    'click',
+    () => {
+
+        dotPass.enabled = true;
+
+        rgbPass.enabled = true;
+
+        updateStatus();
+    }
+);
+
+
+document.getElementById('resetButton').addEventListener(
+    'click',
+    () => {
+
+        dotPass.enabled = false;
+
+        rgbPass.enabled = false;
+
+        updateStatus();
+    }
+);
+
+
+// --------------------------------------------------
+// 15. ANIMATION
+// --------------------------------------------------
+
+function animate() {
+
+    requestAnimationFrame(animate);
+
+    cube.rotation.x += 0.006;
+    cube.rotation.y += 0.01;
+
+    sphere.rotation.y += 0.008;
+
+    torus.rotation.x += 0.008;
+    torus.rotation.y += 0.012;
+
+    controls.update();
+
+    // Process the scene through all enabled passes.
+    composer.render();
+}
+
+animate();
+
+
+// --------------------------------------------------
+// 16. RESIZE
+// --------------------------------------------------
+
+window.addEventListener('resize', () => {
+
+    camera.aspect =
+        window.innerWidth / window.innerHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    composer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+});
+
+</script>
+
+</body>
+</html>
+

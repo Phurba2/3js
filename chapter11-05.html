@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 11 - SSAO Lab (Fixed)</title>
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #10131c;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    #panel {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 10;
+      width: 310px;
+      padding: 14px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.82);
+    }
+
+    label {
+      display: block;
+      margin-top: 14px;
+      font-size: 14px;
+    }
+
+    input {
+      width: 100%;
+      margin-top: 7px;
+    }
+
+    button {
+      margin-top: 12px;
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+
+    p {
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .value {
+      float: right;
+      color: #91d9ff;
+    }
+  </style>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+
+<body>
+  <div id="panel">
+    <h2>SSAO Lab</h2>
+
+    <p>
+      Screen Space Ambient Occlusion adds local darkening
+      around nearby surfaces, corners, and contact areas.
+    </p>
+
+    <label>
+      AO radius
+      <span class="value" id="radiusValue">8</span>
+      <input id="radius" type="range"
+             min="1" max="20" step="1" value="8">
+    </label>
+
+    <label>
+      AO strength
+      <span class="value" id="strengthValue">1.5</span>
+      <input id="strength" type="range"
+             min="0.1" max="3" step="0.1" value="1.5">
+    </label>
+
+    <button id="toggleAO">Disable SSAO</button>
+    <button id="toggleRotation">Pause Rotation</button>
+
+    <p id="status">SSAO: ON</p>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    import { OrbitControls } from
+      'three/addons/controls/OrbitControls.js';
+
+    import { EffectComposer } from
+      'three/addons/postprocessing/EffectComposer.js';
+
+    import { RenderPass } from
+      'three/addons/postprocessing/RenderPass.js';
+
+    import { SSAOPass } from
+      'three/addons/postprocessing/SSAOPass.js';
+
+    import { OutputPass } from
+      'three/addons/postprocessing/OutputPass.js';
+
+    // --------------------------------------------------
+    // 1. Renderer
+    // --------------------------------------------------
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true
+    });
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    document.body.appendChild(renderer.domElement);
+
+    // --------------------------------------------------
+    // 2. Scene and camera
+    // --------------------------------------------------
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x182033);
+
+    const camera = new THREE.PerspectiveCamera(
+      50,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      100
+    );
+
+    camera.position.set(7, 6, 10);
+    camera.lookAt(0, 0, 0);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0.5, 0);
+    controls.enableDamping = true;
+    controls.update();
+
+    // --------------------------------------------------
+    // 3. Lighting
+    // --------------------------------------------------
+
+    scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 3);
+    directionalLight.position.set(5, 10, 6);
+    scene.add(directionalLight);
+
+    // --------------------------------------------------
+    // 4. Floor
+    // --------------------------------------------------
+
+    const floorGeometry = new THREE.PlaneGeometry(18, 18);
+
+    const floorMaterial = new THREE.MeshStandardMaterial({
+      color: 0x777f91,
+      roughness: 0.9,
+      metalness: 0
+    });
+
+    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.05;
+
+    scene.add(floor);
+
+    // --------------------------------------------------
+    // 5. Create objects
+    // --------------------------------------------------
+
+    const objects = [];
+
+    const cubeMaterial = new THREE.MeshStandardMaterial({
+      color: 0xff7043,
+      roughness: 0.6
+    });
+
+    const sphereMaterial = new THREE.MeshStandardMaterial({
+      color: 0x42bfff,
+      roughness: 0.35,
+      metalness: 0.1
+    });
+
+    const torusMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffd54f,
+      roughness: 0.45
+    });
+
+    // Large cube
+    const cube = new THREE.Mesh(
+      new THREE.BoxGeometry(2, 2, 2),
+      cubeMaterial
+    );
+
+    cube.position.set(-2, 1, 0);
+    scene.add(cube);
+    objects.push(cube);
+
+    // Sphere
+    const sphere = new THREE.Mesh(
+      new THREE.SphereGeometry(1.1, 48, 32),
+      sphereMaterial
+    );
+
+    sphere.position.set(1.5, 1.1, 0);
+    scene.add(sphere);
+    objects.push(sphere);
+
+    // Torus knot
+    const knot = new THREE.Mesh(
+      new THREE.TorusKnotGeometry(0.7, 0.23, 100, 16),
+      torusMaterial
+    );
+
+    knot.position.set(0, 1.2, -2.8);
+    scene.add(knot);
+    objects.push(knot);
+
+    // Smaller cubes arranged in a group
+    const smallGroup = new THREE.Group();
+
+    const smallMaterial = new THREE.MeshStandardMaterial({
+      color: 0x9b83ff,
+      roughness: 0.55
+    });
+
+    for (let i = 0; i < 4; i++) {
+      const smallCube = new THREE.Mesh(
+        new THREE.BoxGeometry(0.65, 0.65, 0.65),
+        smallMaterial
+      );
+
+      smallCube.position.set(
+        (i % 2) * 0.8,
+        0.35,
+        Math.floor(i / 2) * 0.8
+      );
+
+      smallGroup.add(smallCube);
+    }
+
+    smallGroup.position.set(3, 0, -2);
+    scene.add(smallGroup);
+    objects.push(smallGroup);
+
+    // --------------------------------------------------
+    // 6. Postprocessing
+    // --------------------------------------------------
+
+    const composer = new EffectComposer(renderer);
+
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    const ssaoPass = new SSAOPass(
+      scene,
+      camera,
+      window.innerWidth,
+      window.innerHeight
+    );
+
+    // SSAO controls
+    ssaoPass.kernelRadius = 8;
+    ssaoPass.minDistance = 0.005;
+    ssaoPass.maxDistance = 0.1;
+
+    composer.addPass(ssaoPass);
+
+    // ✅ OutputPass 负责正确的色彩空间转换与色调映射
+    composer.addPass(new OutputPass());
+
+    // --------------------------------------------------
+    // 7. Sliders
+    // --------------------------------------------------
+
+    const radiusSlider = document.getElementById('radius');
+    const strengthSlider = document.getElementById('strength');
+
+    const radiusValue = document.getElementById('radiusValue');
+    const strengthValue = document.getElementById('strengthValue');
+
+    function updateSettings() {
+      const radius = Number(radiusSlider.value);
+      const strength = Number(strengthSlider.value);
+
+      ssaoPass.kernelRadius = radius;
+      // ✅ SSAOPass 没有 params.intensity，用 minDistance 控制强度
+      ssaoPass.minDistance = 0.02 / strength;
+
+      radiusValue.textContent = radius.toFixed(0);
+      strengthValue.textContent = strength.toFixed(1);
+    }
+
+    radiusSlider.addEventListener('input', updateSettings);
+    strengthSlider.addEventListener('input', updateSettings);
+
+    // --------------------------------------------------
+    // 8. Toggle SSAO
+    // --------------------------------------------------
+
+    let aoEnabled = true;
+    let rotationEnabled = true;
+
+    const toggleAOButton = document.getElementById('toggleAO');
+    const toggleRotationButton = document.getElementById('toggleRotation');
+    const status = document.getElementById('status');
+
+    toggleAOButton.addEventListener('click', () => {
+      aoEnabled = !aoEnabled;
+      ssaoPass.enabled = aoEnabled;
+
+      toggleAOButton.textContent = aoEnabled
+        ? 'Disable SSAO'
+        : 'Enable SSAO';
+
+      status.textContent = `SSAO: ${aoEnabled ? 'ON' : 'OFF'}`;
+    });
+
+    toggleRotationButton.addEventListener('click', () => {
+      rotationEnabled = !rotationEnabled;
+
+      toggleRotationButton.textContent = rotationEnabled
+        ? 'Pause Rotation'
+        : 'Resume Rotation';
+    });
+
+    // --------------------------------------------------
+    // 9. Animation loop
+    // --------------------------------------------------
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (rotationEnabled) {
+        cube.rotation.y += 0.004;
+        sphere.rotation.y += 0.006;
+        knot.rotation.x += 0.005;
+        knot.rotation.y += 0.007;
+        smallGroup.rotation.y += 0.005;
+      }
+
+      controls.update();
+
+      composer.render();
+    }
+
+    updateSettings();
+    animate();
+
+    // --------------------------------------------------
+    // 10. Resize handling
+    // --------------------------------------------------
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+
+      ssaoPass.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>

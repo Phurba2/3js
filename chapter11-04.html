@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 11 - Bokeh Lab</title>
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #10131c;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    #panel {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 10;
+      width: 300px;
+      padding: 14px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.8);
+    }
+
+    label {
+      display: block;
+      margin-top: 14px;
+      font-size: 14px;
+    }
+
+    input {
+      width: 100%;
+      margin-top: 7px;
+    }
+
+    button {
+      margin-top: 12px;
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+
+    p {
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .value {
+      float: right;
+      color: #91d9ff;
+    }
+  </style>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+
+<body>
+  <div id="panel">
+    <h2>Bokeh Lab</h2>
+
+    <p>
+      Change the focus distance to make different rows of cubes
+      appear sharp. Increase the aperture to make the blur stronger.
+    </p>
+
+    <label>
+      Focus distance
+      <span class="value" id="focusValue">12</span>
+      <input id="focus" type="range"
+             min="4" max="22" step="0.5" value="12">
+    </label>
+
+    <label>
+      Aperture / blur strength
+      <span class="value" id="apertureValue">0.025</span>
+      <input id="aperture" type="range"
+             min="0.001" max="0.05" step="0.001" value="0.025">
+    </label>
+
+    <button id="toggleBlur">Disable Blur</button>
+    <button id="toggleRotation">Pause Rotation</button>
+
+    <p>
+      Tip: Try focus distances around 6, 12, and 18.
+    </p>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    import { EffectComposer } from
+      'three/addons/postprocessing/EffectComposer.js';
+
+    import { RenderPass } from
+      'three/addons/postprocessing/RenderPass.js';
+
+    import { BokehPass } from
+      'three/addons/postprocessing/BokehPass.js';
+
+    // --------------------------------------------------
+    // 1. Renderer
+    // --------------------------------------------------
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true
+    });
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    document.body.appendChild(renderer.domElement);
+
+    // --------------------------------------------------
+    // 2. Scene and camera
+    // --------------------------------------------------
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x151a29);
+
+    const camera = new THREE.PerspectiveCamera(
+      55,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      100
+    );
+
+    camera.position.set(0, 1, 12);
+    camera.lookAt(0, 0, 0);
+
+    // --------------------------------------------------
+    // 3. Lighting
+    // --------------------------------------------------
+
+    scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+
+    const light = new THREE.DirectionalLight(0xffffff, 3);
+    light.position.set(4, 8, 10);
+    scene.add(light);
+
+    // --------------------------------------------------
+    // 4. Ground grid for a sense of depth
+    // --------------------------------------------------
+
+    const grid = new THREE.GridHelper(30, 30, 0x52617d, 0x30394d);
+    grid.position.y = -2.5;
+    scene.add(grid);
+
+    // --------------------------------------------------
+    // 5. Create three rows of cubes at different depths
+    // --------------------------------------------------
+
+    const cubes = [];
+
+    const rows = [
+      {
+        z: 6,
+        color: 0xff4545,
+        label: 'NEAR'
+      },
+      {
+        z: 0,
+        color: 0x42e890,
+        label: 'MIDDLE'
+      },
+      {
+        z: -6,
+        color: 0x459dff,
+        label: 'FAR'
+      }
+    ];
+
+    rows.forEach((row, rowIndex) => {
+      for (let i = 0; i < 5; i++) {
+        const geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+
+        const material = new THREE.MeshStandardMaterial({
+          color: row.color,
+          roughness: 0.35,
+          metalness: 0.15
+        });
+
+        const cube = new THREE.Mesh(geometry, material);
+
+        cube.position.set(
+          (i - 2) * 1.5,
+          Math.sin(i * 1.2 + rowIndex) * 0.25,
+          row.z
+        );
+
+        scene.add(cube);
+
+        cubes.push({
+          mesh: cube,
+          index: i,
+          rowIndex
+        });
+      }
+    });
+
+    // --------------------------------------------------
+    // 6. Create the postprocessing composer
+    // --------------------------------------------------
+
+    const composer = new EffectComposer(renderer);
+
+    // First render the scene normally.
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    // Then apply depth-of-field blur.
+    const bokehPass = new BokehPass(scene, camera, {
+      focus: 12,
+      aspect: camera.aspect,
+      aperture: 0.025,
+      maxblur: 0.01
+    });
+
+    composer.addPass(bokehPass);
+
+    // --------------------------------------------------
+    // 7. Connect sliders to BokehPass uniforms
+    // --------------------------------------------------
+
+    const focusSlider = document.getElementById('focus');
+    const apertureSlider = document.getElementById('aperture');
+
+    const focusValue = document.getElementById('focusValue');
+    const apertureValue = document.getElementById('apertureValue');
+
+    function updateBokehSettings() {
+      const focus = Number(focusSlider.value);
+      const aperture = Number(apertureSlider.value);
+
+      bokehPass.uniforms['focus'].value = focus;
+      bokehPass.uniforms['aperture'].value = aperture;
+
+      focusValue.textContent = focus.toFixed(1);
+      apertureValue.textContent = aperture.toFixed(3);
+    }
+
+    focusSlider.addEventListener('input', updateBokehSettings);
+    apertureSlider.addEventListener('input', updateBokehSettings);
+
+    // --------------------------------------------------
+    // 8. Toggle blur and animation
+    // --------------------------------------------------
+
+    let blurEnabled = true;
+    let rotationEnabled = true;
+
+    document.getElementById('toggleBlur').addEventListener('click', (event) => {
+      blurEnabled = !blurEnabled;
+
+      // The RenderPass still renders the scene.
+      // Disabling BokehPass removes the depth-of-field effect.
+      bokehPass.enabled = blurEnabled;
+
+      event.target.textContent = blurEnabled
+        ? 'Disable Blur'
+        : 'Enable Blur';
+    });
+
+    document.getElementById('toggleRotation').addEventListener('click', (event) => {
+      rotationEnabled = !rotationEnabled;
+
+      event.target.textContent = rotationEnabled
+        ? 'Pause Rotation'
+        : 'Resume Rotation';
+    });
+
+    // --------------------------------------------------
+    // 9. Animation loop
+    // --------------------------------------------------
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (rotationEnabled) {
+        cubes.forEach(({ mesh, index, rowIndex }) => {
+          mesh.rotation.x += 0.004 + index * 0.0005;
+          mesh.rotation.y += 0.007 + rowIndex * 0.002;
+        });
+      }
+
+      // EffectComposer renders the scene and applies BokehPass.
+      composer.render();
+    }
+
+    updateBokehSettings();
+    animate();
+
+    // --------------------------------------------------
+    // 10. Resize handling
+    // --------------------------------------------------
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+
+      // Keep the BokehPass aspect ratio in sync.
+      bokehPass.uniforms['aspect'].value = camera.aspect;
+    });
+  </script>
+</body>
+</html>
+

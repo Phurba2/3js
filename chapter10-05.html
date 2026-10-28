@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js - Alpha Map Lab</title>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #101522;
+            color: white;
+        }
+
+        #info {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            max-width: 340px;
+            padding: 14px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+
+        button {
+            margin: 4px 4px 4px 0;
+            padding: 8px 12px;
+            border: 0;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #cbd5e1;
+        }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+
+<div id="info">
+    <h2>Alpha Map Lab</h2>
+
+    <p>
+        Black areas in the alpha map become transparent.
+        White areas remain visible.
+    </p>
+
+    <button id="toggleAlpha">Disable Alpha Map</button>
+    <button id="toggleRotation">Stop Rotation</button>
+
+    <p id="status">Alpha map: ON</p>
+    <p>Drag to rotate the camera. Scroll to zoom.</p>
+</div>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // ----------------------------------
+    // 1. Create the scene
+    // ----------------------------------
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x101522);
+
+    // ----------------------------------
+    // 2. Create the camera
+    // ----------------------------------
+
+    const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+    );
+
+    camera.position.set(0, 2, 7);
+
+    // ----------------------------------
+    // 3. Create the renderer
+    // ----------------------------------
+
+    const renderer = new THREE.WebGLRenderer({
+        antialias: true
+    });
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, 2)
+    );
+
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    document.body.appendChild(renderer.domElement);
+
+    // ----------------------------------
+    // 4. Add camera controls
+    // ----------------------------------
+
+    const controls = new OrbitControls(
+        camera,
+        renderer.domElement
+    );
+
+    controls.enableDamping = true;
+
+    // ----------------------------------
+    // 5. Add lights
+    // ----------------------------------
+
+    const ambientLight = new THREE.AmbientLight(
+        0xffffff,
+        2
+    );
+
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(
+        0xffffff,
+        3
+    );
+
+    directionalLight.position.set(3, 5, 4);
+    scene.add(directionalLight);
+
+    // ----------------------------------
+    // 6. Create a colorful color texture
+    // ----------------------------------
+
+    const colorCanvas = document.createElement('canvas');
+
+    colorCanvas.width = 512;
+    colorCanvas.height = 384;
+
+    const colorContext = colorCanvas.getContext('2d');
+
+    // Base color
+    colorContext.fillStyle = '#35a853';
+    colorContext.fillRect(0, 0, 512, 384);
+
+    // Draw colorful diagonal stripes
+    const stripeColors = [
+        '#facc15',
+        '#fb7185',
+        '#38bdf8',
+        '#a78bfa'
+    ];
+
+    for (let i = -384; i < 512; i += 80) {
+        colorContext.fillStyle =
+            stripeColors[
+                Math.abs(Math.floor(i / 80)) % stripeColors.length
+            ];
+
+        colorContext.beginPath();
+        colorContext.moveTo(i, 0);
+        colorContext.lineTo(i + 40, 0);
+        colorContext.lineTo(i + 424, 384);
+        colorContext.lineTo(i + 384, 384);
+        colorContext.closePath();
+        colorContext.fill();
+    }
+
+    const colorTexture = new THREE.CanvasTexture(colorCanvas);
+
+    colorTexture.colorSpace = THREE.SRGBColorSpace;
+
+    // ----------------------------------
+    // 7. Create the alpha map
+    // ----------------------------------
+
+    const alphaCanvas = document.createElement('canvas');
+
+    alphaCanvas.width = 512;
+    alphaCanvas.height = 384;
+
+    const alphaContext = alphaCanvas.getContext('2d');
+
+    // White means opaque.
+    alphaContext.fillStyle = 'white';
+    alphaContext.fillRect(0, 0, 512, 384);
+
+    // Black circles create transparent holes.
+    alphaContext.fillStyle = 'black';
+
+    for (let y = 48; y < 384; y += 96) {
+        for (let x = 48; x < 512; x += 96) {
+            alphaContext.beginPath();
+
+            alphaContext.arc(
+                x,
+                y,
+                24,
+                0,
+                Math.PI * 2
+            );
+
+            alphaContext.fill();
+        }
+    }
+
+    const alphaTexture = new THREE.CanvasTexture(alphaCanvas);
+
+    // Alpha maps are data maps, not color maps.
+    alphaTexture.colorSpace = THREE.NoColorSpace;
+
+    // ----------------------------------
+    // 8. Create the material
+    // ----------------------------------
+
+    const material = new THREE.MeshStandardMaterial({
+        map: colorTexture,
+        alphaMap: alphaTexture,
+        transparent: true,
+        side: THREE.DoubleSide,
+        roughness: 0.7,
+        metalness: 0
+    });
+
+    // ----------------------------------
+    // 9. Create the plane
+    // ----------------------------------
+
+    const geometry = new THREE.PlaneGeometry(
+        5,
+        3.75,
+        1,
+        1
+    );
+
+    const plane = new THREE.Mesh(
+        geometry,
+        material
+    );
+
+    scene.add(plane);
+
+    // ----------------------------------
+    // 10. Add a floor
+    // ----------------------------------
+
+    const floorGeometry = new THREE.PlaneGeometry(
+        20,
+        20
+    );
+
+    const floorMaterial = new THREE.MeshStandardMaterial({
+        color: 0x263449,
+        roughness: 1
+    });
+
+    const floor = new THREE.Mesh(
+        floorGeometry,
+        floorMaterial
+    );
+
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -2.5;
+
+    scene.add(floor);
+
+    // ----------------------------------
+    // 11. Toggle the alpha map
+    // ----------------------------------
+
+    let alphaEnabled = true;
+
+    const alphaButton = document.getElementById(
+        'toggleAlpha'
+    );
+
+    const status = document.getElementById('status');
+
+    alphaButton.addEventListener('click', () => {
+        alphaEnabled = !alphaEnabled;
+
+        if (alphaEnabled) {
+            material.alphaMap = alphaTexture;
+            alphaButton.textContent = 'Disable Alpha Map';
+            status.textContent = 'Alpha map: ON';
+        } else {
+            material.alphaMap = null;
+            alphaButton.textContent = 'Enable Alpha Map';
+            status.textContent = 'Alpha map: OFF';
+        }
+
+        material.needsUpdate = true;
+    });
+
+    // ----------------------------------
+    // 12. Toggle rotation
+    // ----------------------------------
+
+    let rotationEnabled = true;
+
+    const rotationButton = document.getElementById(
+        'toggleRotation'
+    );
+
+    rotationButton.addEventListener('click', () => {
+        rotationEnabled = !rotationEnabled;
+
+        rotationButton.textContent = rotationEnabled
+            ? 'Stop Rotation'
+            : 'Start Rotation';
+    });
+
+    // ----------------------------------
+    // 13. Animate
+    // ----------------------------------
+
+    function animate() {
+        requestAnimationFrame(animate);
+
+        if (rotationEnabled) {
+            plane.rotation.y += 0.003;
+        }
+
+        controls.update();
+
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // ----------------------------------
+    // 14. Handle window resizing
+    // ----------------------------------
+
+    window.addEventListener('resize', () => {
+        camera.aspect =
+            window.innerWidth / window.innerHeight;
+
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+    });
+</script>
+
+</body>
+</html>
+

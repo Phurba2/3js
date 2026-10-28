@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js - Material Lab</title>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #101827;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        #panel {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            width: 290px;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 8px;
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        label {
+            display: block;
+            margin-top: 14px;
+        }
+
+        input {
+            width: 100%;
+        }
+
+        button {
+            width: 100%;
+            padding: 9px;
+            margin-top: 12px;
+            cursor: pointer;
+        }
+
+        #readout {
+            line-height: 1.6;
+            font-size: 14px;
+        }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+
+<div id="panel">
+    <h2>Material Lab</h2>
+
+    <p>Adjust the selected sphere's surface.</p>
+
+    <label for="materialSelect">Choose a material</label>
+
+    <select id="materialSelect">
+        <option value="gold">Gold</option>
+        <option value="plastic">Plastic</option>
+        <option value="steel">Rough Metal</option>
+    </select>
+
+    <label for="metalness">
+        Metalness: <span id="metalValue">1.00</span>
+    </label>
+    <input id="metalness" type="range"
+           min="0" max="1" step="0.01" value="1">
+
+    <label for="roughness">
+        Roughness: <span id="roughValue">0.15</span>
+    </label>
+    <input id="roughness" type="range"
+           min="0.05" max="1" step="0.01" value="0.15">
+
+    <button id="reset">Reset Material</button>
+
+    <p id="readout">
+        Gold: metallic and smooth.
+    </p>
+</div>
+
+<script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from
+        "three/addons/controls/OrbitControls.js";
+
+    // Scene
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x101827);
+
+    // Camera
+    const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+    );
+
+    camera.position.set(0, 2, 8);
+
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({
+        antialias: true
+    });
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, 2)
+    );
+
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    document.body.appendChild(renderer.domElement);
+
+    // Controls
+    const controls = new OrbitControls(
+        camera,
+        renderer.domElement
+    );
+
+    controls.enableDamping = true;
+
+    // Lights
+    scene.add(
+        new THREE.AmbientLight(0xffffff, 1.0)
+    );
+
+    const keyLight = new THREE.DirectionalLight(
+        0xffffff,
+        3
+    );
+
+    keyLight.position.set(4, 6, 5);
+    scene.add(keyLight);
+
+    const fillLight = new THREE.PointLight(
+        0x6699ff,
+        50
+    );
+
+    fillLight.position.set(-4, 2, 3);
+    scene.add(fillLight);
+
+    // Floor
+    const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(200, 200),
+        new THREE.MeshStandardMaterial({
+            color: 0x29374a,
+            roughness: 1
+        })
+    );
+
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -1.5;
+    scene.add(floor);
+
+    // Create three spheres.
+    const geometry = new THREE.SphereGeometry(
+        0.9,
+        64,
+        64
+    );
+
+    const goldMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffc928,
+        metalness: 1,
+        roughness: 0.15
+    });
+
+    const plasticMaterial = new THREE.MeshStandardMaterial({
+        color: 0x2888ff,
+        metalness: 0,
+        roughness: 0.25
+    });
+
+    const steelMaterial = new THREE.MeshStandardMaterial({
+        color: 0xb7c3d0,
+        metalness: 1,
+        roughness: 0.85
+    });
+
+    const gold = new THREE.Mesh(geometry, goldMaterial);
+    const plastic = new THREE.Mesh(geometry, plasticMaterial);
+    const steel = new THREE.Mesh(geometry, steelMaterial);
+
+    gold.position.x = -2.3;
+    plastic.position.x = 0;
+    steel.position.x = 2.3;
+
+    scene.add(gold, plastic, steel);
+
+    // Put labels above the spheres using sprites.
+    function createLabel(text, x) {
+        const canvas = document.createElement("canvas");
+
+        canvas.width = 512;
+        canvas.height = 128;
+
+        const ctx = canvas.getContext("2d");
+
+        ctx.fillStyle = "white";
+        ctx.font = "bold 48px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(text, 256, 80);
+
+        const texture = new THREE.CanvasTexture(canvas);
+
+        const material = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true
+        });
+
+        const sprite = new THREE.Sprite(material);
+
+        sprite.position.set(x, 1.35, 0);
+        sprite.scale.set(2, 0.5, 1);
+
+        scene.add(sprite);
+    }
+
+    createLabel("GOLD", -2.3);
+    createLabel("PLASTIC", 0);
+    createLabel("ROUGH METAL", 2.3);
+
+    // Selectable material controls.
+    const selector = document.getElementById("materialSelect");
+    const metalSlider = document.getElementById("metalness");
+    const roughSlider = document.getElementById("roughness");
+
+    const metalValue = document.getElementById("metalValue");
+    const roughValue = document.getElementById("roughValue");
+    const readout = document.getElementById("readout");
+
+    function getSelectedMaterial() {
+        if (selector.value === "gold") return goldMaterial;
+        if (selector.value === "plastic") return plasticMaterial;
+        return steelMaterial;
+    }
+
+    function loadSelectedValues() {
+        const material = getSelectedMaterial();
+
+        metalSlider.value = material.metalness;
+        roughSlider.value = material.roughness;
+
+        updateReadout();
+    }
+
+    function updateReadout() {
+        const material = getSelectedMaterial();
+
+        material.metalness = Number(metalSlider.value);
+        material.roughness = Number(roughSlider.value);
+
+        metalValue.textContent =
+            material.metalness.toFixed(2);
+
+        roughValue.textContent =
+            material.roughness.toFixed(2);
+
+        readout.textContent =
+            `Metalness ${material.metalness.toFixed(2)}; ` +
+            `roughness ${material.roughness.toFixed(2)}.`;
+    }
+
+    selector.addEventListener("change", loadSelectedValues);
+    metalSlider.addEventListener("input", updateReadout);
+    roughSlider.addEventListener("input", updateReadout);
+
+    document.getElementById("reset").addEventListener("click", function () {
+        const defaults = {
+            gold: [1, 0.15],
+            plastic: [0, 0.25],
+            steel: [1, 0.85]
+        };
+
+        const values = defaults[selector.value];
+
+        metalSlider.value = values[0];
+        roughSlider.value = values[1];
+
+        updateReadout();
+    });
+
+    loadSelectedValues();
+
+    // Animation
+    function animate() {
+        requestAnimationFrame(animate);
+
+        gold.rotation.y += 0.004;
+        plastic.rotation.y += 0.004;
+        steel.rotation.y += 0.004;
+
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // Resize
+    window.addEventListener("resize", function () {
+        camera.aspect =
+            window.innerWidth / window.innerHeight;
+
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+    });
+</script>
+
+</body>
+</html>
+

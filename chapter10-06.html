@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js - Environment Maps</title>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #111827;
+            color: white;
+        }
+
+        #info {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            max-width: 350px;
+            padding: 14px;
+            background: rgba(0, 0, 0, 0.75);
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+
+        button {
+            padding: 8px 12px;
+            margin: 3px;
+            cursor: pointer;
+        }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+
+<div id="info">
+    <h2>Environment Map Lab</h2>
+    <p>
+        The objects reflect the colorful environment
+        surrounding them.
+    </p>
+
+    <button id="backgroundButton">Hide Environment</button>
+    <button id="rotationButton">Stop Rotation</button>
+
+    <p>Drag to rotate the camera. Scroll to zoom.</p>
+</div>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // 1. Scene
+    const scene = new THREE.Scene();
+
+    scene.background = new THREE.Color(0x111827);
+
+    // 2. Camera
+    const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+    );
+
+    camera.position.set(0, 2, 9);
+
+    // 3. Renderer
+    const renderer = new THREE.WebGLRenderer({
+        antialias: true
+    });
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, 2)
+    );
+
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    document.body.appendChild(renderer.domElement);
+
+    // 4. Controls
+    const controls = new OrbitControls(
+        camera,
+        renderer.domElement
+    );
+
+    controls.enableDamping = true;
+
+    // 5. Create an environment image using Canvas
+    const canvas = document.createElement('canvas');
+
+    canvas.width = 1024;
+    canvas.height = 512;
+
+    const ctx = canvas.getContext('2d');
+
+    // Sky gradient
+    const gradient = ctx.createLinearGradient(
+        0, 0, 0, canvas.height
+    );
+
+    gradient.addColorStop(0, '#071a52');
+    gradient.addColorStop(0.35, '#168aad');
+    gradient.addColorStop(0.65, '#f4a261');
+    gradient.addColorStop(1, '#172554');
+
+    ctx.fillStyle = gradient;
+
+    ctx.fillRect(
+        0, 0, canvas.width, canvas.height
+    );
+
+    // Add bright environment panels
+    const panels = [
+        { x: 100, color: '#ffffff' },
+        { x: 280, color: '#ffcc33' },
+        { x: 460, color: '#f72585' },
+        { x: 640, color: '#80ffdb' },
+        { x: 820, color: '#ffffff' }
+    ];
+
+    for (const panel of panels) {
+        ctx.fillStyle = panel.color;
+
+        ctx.fillRect(
+            panel.x,
+            100,
+            70,
+            220
+        );
+    }
+
+    // Add a horizon line
+    ctx.fillStyle = '#164e63';
+
+    ctx.fillRect(
+        0,
+        340,
+        canvas.width,
+        172
+    );
+
+    // Add glowing light sources
+    for (let i = 0; i < 12; i++) {
+        const x = i * 90 + 30;
+
+        ctx.beginPath();
+
+        ctx.arc(
+            x,
+            60 + (i % 3) * 20,
+            12,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+    }
+
+    // Convert the canvas into an environment texture
+    const environmentTexture = new THREE.CanvasTexture(
+        canvas
+    );
+
+    environmentTexture.mapping =
+        THREE.EquirectangularReflectionMapping;
+
+    environmentTexture.colorSpace = THREE.SRGBColorSpace;
+
+    // Use the texture as the scene's environment.
+    // The environment illuminates reflective materials.
+    scene.environment = environmentTexture;
+
+    // Also show the environment as the background.
+    scene.background = environmentTexture;
+
+    // 6. Create a gold reflective sphere
+    const goldGeometry = new THREE.SphereGeometry(
+        1,
+        64,
+        64
+    );
+
+    const goldMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        metalness: 1,
+        roughness: 0.12,
+        envMapIntensity: 1.5
+    });
+
+    const goldSphere = new THREE.Mesh(
+        goldGeometry,
+        goldMaterial
+    );
+
+    goldSphere.position.x = -2.5;
+
+    scene.add(goldSphere);
+
+    // 7. Create a rough metal sphere
+    const roughGeometry = new THREE.SphereGeometry(
+        1,
+        64,
+        64
+    );
+
+    const roughMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        metalness: 1,
+        roughness: 0.65,
+        envMapIntensity: 1.5
+    });
+
+    const roughSphere = new THREE.Mesh(
+        roughGeometry,
+        roughMaterial
+    );
+
+    roughSphere.position.x = 0;
+
+    scene.add(roughSphere);
+
+    // 8. Create a less metallic sphere
+    const plasticGeometry = new THREE.SphereGeometry(
+        1,
+        64,
+        64
+    );
+
+    const plasticMaterial = new THREE.MeshStandardMaterial({
+        color: 0x66ccff,
+        metalness: 0,
+        roughness: 0.25,
+        envMapIntensity: 1
+    });
+
+    const plasticSphere = new THREE.Mesh(
+        plasticGeometry,
+        plasticMaterial
+    );
+
+    plasticSphere.position.x = 2.5;
+
+    scene.add(plasticSphere);
+
+    // 9. Add a little direct lighting
+    const light = new THREE.DirectionalLight(
+        0xffffff,
+        2
+    );
+
+    light.position.set(4, 5, 5);
+
+    scene.add(light);
+
+    // 10. Toggle environment background
+    let backgroundVisible = true;
+
+    document.getElementById(
+        'backgroundButton'
+    ).addEventListener('click', () => {
+        backgroundVisible = !backgroundVisible;
+
+        scene.background = backgroundVisible
+            ? environmentTexture
+            : new THREE.Color(0x111827);
+
+        document.getElementById(
+            'backgroundButton'
+        ).textContent = backgroundVisible
+            ? 'Hide Environment'
+            : 'Show Environment';
+    });
+
+    // 11. Toggle rotation
+    let rotationEnabled = true;
+
+    document.getElementById(
+        'rotationButton'
+    ).addEventListener('click', () => {
+        rotationEnabled = !rotationEnabled;
+
+        document.getElementById(
+            'rotationButton'
+        ).textContent = rotationEnabled
+            ? 'Stop Rotation'
+            : 'Start Rotation';
+    });
+
+    // 12. Animate
+    function animate() {
+        requestAnimationFrame(animate);
+
+        if (rotationEnabled) {
+            goldSphere.rotation.y += 0.008;
+            roughSphere.rotation.y += 0.005;
+            plasticSphere.rotation.y += 0.003;
+        }
+
+        controls.update();
+
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // 13. Resize
+    window.addEventListener('resize', () => {
+        camera.aspect =
+            window.innerWidth / window.innerHeight;
+
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+    });
+</script>
+
+</body>
+</html>
+

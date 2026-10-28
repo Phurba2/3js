@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Postprocessing Lab</title>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #080812;
+            font-family: Arial, sans-serif;
+        }
+
+        #panel {
+            position: absolute;
+            z-index: 5;
+            top: 12px;
+            left: 12px;
+            width: 220px;
+            padding: 14px;
+            color: white;
+            background: rgba(0, 0, 0, 0.82);
+            border-radius: 8px;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 8px;
+            padding: 9px;
+            cursor: pointer;
+        }
+
+        p {
+            font-size: 13px;
+            line-height: 1.5;
+        }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+
+<div id="panel">
+    <strong>Postprocessing Lab</strong>
+
+    <button id="filmButton">Toggle Film</button>
+    <button id="dotButton">Toggle Dot Screen</button>
+    <button id="bloomButton">Toggle Bloom</button>
+    <button id="resetButton">Reset All</button>
+
+    <p id="status"></p>
+
+    <p>
+        Try switching effects individually and then combining them.
+    </p>
+</div>
+
+<script type="module">
+
+import * as THREE from 'three';
+
+import { OrbitControls } from
+    'three/addons/controls/OrbitControls.js';
+
+import { EffectComposer } from
+    'three/addons/postprocessing/EffectComposer.js';
+
+import { RenderPass } from
+    'three/addons/postprocessing/RenderPass.js';
+
+import { ShaderPass } from
+    'three/addons/postprocessing/ShaderPass.js';
+
+import { DotScreenShader } from
+    'three/addons/shaders/DotScreenShader.js';
+
+import { UnrealBloomPass } from
+    'three/addons/postprocessing/UnrealBloomPass.js';
+
+
+// --------------------------------------------------
+// 1. SCENE
+// --------------------------------------------------
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x080812);
+
+
+// --------------------------------------------------
+// 2. CAMERA
+// --------------------------------------------------
+
+const camera = new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    100
+);
+
+camera.position.set(0, 2, 9);
+
+
+// --------------------------------------------------
+// 3. RENDERER
+// --------------------------------------------------
+
+const renderer = new THREE.WebGLRenderer({
+    antialias: true
+});
+
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
+
+renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, 2)
+);
+
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+document.body.appendChild(renderer.domElement);
+
+
+// --------------------------------------------------
+// 4. COMPOSER AND RENDER PASS
+// --------------------------------------------------
+
+const composer = new EffectComposer(renderer);
+
+composer.addPass(
+    new RenderPass(scene, camera)
+);
+
+
+// --------------------------------------------------
+// 5. FILM EFFECT SHADER
+// --------------------------------------------------
+
+const FilmShader = {
+
+    uniforms: {
+        tDiffuse: { value: null },
+        time: { value: 0 },
+        noiseIntensity: { value: 0.12 },
+        scanlineIntensity: { value: 0.08 },
+        scanlineCount: { value: 800.0 }
+    },
+
+    vertexShader: `
+        varying vec2 vUv;
+
+        void main() {
+            vUv = uv;
+
+            gl_Position =
+                projectionMatrix *
+                modelViewMatrix *
+                vec4(position, 1.0);
+        }
+    `,
+
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float time;
+        uniform float noiseIntensity;
+        uniform float scanlineIntensity;
+        uniform float scanlineCount;
+
+        varying vec2 vUv;
+
+        float randomNoise(vec2 p) {
+            return fract(
+                sin(dot(p, vec2(12.9898, 78.233)))
+                * 43758.5453
+            );
+        }
+
+        void main() {
+
+            vec4 color = texture2D(tDiffuse, vUv);
+
+            float noise = randomNoise(
+                vUv * (time + 1.0)
+            );
+
+            color.rgb +=
+                (noise - 0.5) * noiseIntensity;
+
+            float scanline =
+                sin(vUv.y * scanlineCount * 3.14159);
+
+            color.rgb -=
+                scanline * scanlineIntensity;
+
+            gl_FragColor = color;
+        }
+    `
+};
+
+
+// --------------------------------------------------
+// 6. ADD FILM PASS
+// --------------------------------------------------
+
+const filmPass = new ShaderPass(FilmShader);
+
+filmPass.enabled = false;
+
+composer.addPass(filmPass);
+
+
+// --------------------------------------------------
+// 7. ADD DOT SCREEN PASS
+// --------------------------------------------------
+
+const dotPass = new ShaderPass(DotScreenShader);
+
+dotPass.uniforms['scale'].value = 2.5;
+
+dotPass.enabled = false;
+
+composer.addPass(dotPass);
+
+
+// --------------------------------------------------
+// 8. ADD BLOOM PASS
+// --------------------------------------------------
+
+const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(
+        window.innerWidth,
+        window.innerHeight
+    ),
+    1.2,   // Strength
+    0.4,   // Radius
+    0.75   // Threshold
+);
+
+bloomPass.enabled = false;
+
+composer.addPass(bloomPass);
+
+
+// --------------------------------------------------
+// 9. LIGHTING
+// --------------------------------------------------
+
+scene.add(
+    new THREE.AmbientLight(0xffffff, 1.2)
+);
+
+const light = new THREE.PointLight(0xffffff, 35);
+
+light.position.set(0, 4, 5);
+
+scene.add(light);
+
+
+// --------------------------------------------------
+// 10. CREATE OBJECTS
+// --------------------------------------------------
+
+const cube = new THREE.Mesh(
+    new THREE.BoxGeometry(1.7, 1.7, 1.7),
+    new THREE.MeshStandardMaterial({
+        color: 0x3388ff,
+        roughness: 0.3,
+        metalness: 0.2
+    })
+);
+
+cube.position.x = -2;
+scene.add(cube);
+
+
+const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(0.95, 48, 48),
+    new THREE.MeshBasicMaterial({
+        color: 0xffffff
+    })
+);
+
+sphere.position.x = 0.3;
+scene.add(sphere);
+
+
+const torus = new THREE.Mesh(
+    new THREE.TorusKnotGeometry(0.65, 0.22, 120, 16),
+    new THREE.MeshStandardMaterial({
+        color: 0xff3388,
+        roughness: 0.25,
+        metalness: 0.25
+    })
+);
+
+torus.position.x = 2.6;
+scene.add(torus);
+
+
+// --------------------------------------------------
+// 11. CONTROLS
+// --------------------------------------------------
+
+const controls = new OrbitControls(
+    camera,
+    renderer.domElement
+);
+
+controls.enableDamping = true;
+
+
+// --------------------------------------------------
+// 12. STATUS DISPLAY
+// --------------------------------------------------
+
+function updateStatus() {
+
+    document.getElementById('status').innerHTML =
+        `Film: ${filmPass.enabled ? 'ON' : 'OFF'}<br>` +
+        `Dot Screen: ${dotPass.enabled ? 'ON' : 'OFF'}<br>` +
+        `Bloom: ${bloomPass.enabled ? 'ON' : 'OFF'}`;
+}
+
+updateStatus();
+
+
+// --------------------------------------------------
+// 13. BUTTON EVENTS
+// --------------------------------------------------
+
+document.getElementById('filmButton').onclick = () => {
+    filmPass.enabled = !filmPass.enabled;
+    updateStatus();
+};
+
+document.getElementById('dotButton').onclick = () => {
+    dotPass.enabled = !dotPass.enabled;
+    updateStatus();
+};
+
+document.getElementById('bloomButton').onclick = () => {
+    bloomPass.enabled = !bloomPass.enabled;
+    updateStatus();
+};
+
+document.getElementById('resetButton').onclick = () => {
+    filmPass.enabled = false;
+    dotPass.enabled = false;
+    bloomPass.enabled = false;
+    updateStatus();
+};
+
+
+// --------------------------------------------------
+// 14. ANIMATION LOOP
+// --------------------------------------------------
+
+function animate() {
+
+    requestAnimationFrame(animate);
+
+    cube.rotation.x += 0.006;
+    cube.rotation.y += 0.01;
+
+    sphere.rotation.y += 0.008;
+
+    torus.rotation.x += 0.008;
+    torus.rotation.y += 0.01;
+
+    filmPass.uniforms['time'].value =
+        performance.now() * 0.001;
+
+    controls.update();
+
+    composer.render();
+}
+
+animate();
+
+
+// --------------------------------------------------
+// 15. RESIZE
+// --------------------------------------------------
+
+window.addEventListener('resize', () => {
+
+    camera.aspect =
+        window.innerWidth / window.innerHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    composer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    bloomPass.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+});
+
+</script>
+
+</body>
+</html>
+

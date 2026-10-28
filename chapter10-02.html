@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Three.js - Chapter 10 Surface Detail Lab</title>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #101827;
+            color: white;
+        }
+
+        #info {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 1;
+            max-width: 310px;
+            padding: 14px;
+            background: rgba(0, 0, 0, 0.72);
+            border-radius: 8px;
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            margin-top: 8px;
+            padding: 9px;
+            border: 0;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        #status {
+            margin-top: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+
+<div id="info">
+    <h2>Surface Detail Lab</h2>
+
+    <p>
+        Turn each map on or off and observe how the
+        surface changes.
+    </p>
+
+    <button id="bumpButton">Bump Map: ON</button>
+    <button id="displacementButton">Displacement Map: ON</button>
+    <button id="roughnessButton">Roughness Map: ON</button>
+    <button id="rotationButton">Rotation: ON</button>
+
+    <div id="status">Loading wood texture...</div>
+</div>
+
+<script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+    // ----------------------------------
+    // 1. Create the scene
+    // ----------------------------------
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x101827);
+
+    // ----------------------------------
+    // 2. Create the camera
+    // ----------------------------------
+
+    const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+    );
+
+    camera.position.set(0, 1.5, 5);
+
+    // ----------------------------------
+    // 3. Create the renderer
+    // ----------------------------------
+
+    const renderer = new THREE.WebGLRenderer({
+        antialias: true
+    });
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, 2)
+    );
+
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    document.body.appendChild(renderer.domElement);
+
+    // ----------------------------------
+    // 4. Add orbit controls
+    // ----------------------------------
+
+    const controls = new OrbitControls(
+        camera,
+        renderer.domElement
+    );
+
+    controls.enableDamping = true;
+
+    // ----------------------------------
+    // 5. Add lights
+    // ----------------------------------
+
+    const ambientLight = new THREE.AmbientLight(
+        0xffffff,
+        1.2
+    );
+
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(
+        0xffffff,
+        3
+    );
+
+    directionalLight.position.set(3, 5, 4);
+
+    scene.add(directionalLight);
+
+    // ----------------------------------
+    // 6. Create procedural grayscale maps
+    // ----------------------------------
+
+    function createWoodPattern(isRoughness = false) {
+        const canvas = document.createElement("canvas");
+
+        canvas.width = 512;
+        canvas.height = 512;
+
+        const context = canvas.getContext("2d");
+
+        // Fill the canvas with a base grayscale value.
+        context.fillStyle = isRoughness
+            ? "rgb(180, 180, 180)"
+            : "rgb(128, 128, 128)";
+
+        context.fillRect(0, 0, 512, 512);
+
+        // Draw irregular horizontal lines.
+        for (let i = 0; i < 180; i++) {
+            const y = Math.random() * 512;
+            const height = Math.random() * 3 + 1;
+
+            const brightness = Math.floor(
+                Math.random() * 256
+            );
+
+            context.fillStyle =
+                `rgb(${brightness}, ${brightness}, ${brightness})`;
+
+            context.fillRect(
+                0,
+                y,
+                512,
+                height
+            );
+        }
+
+        // Add a few wider grooves.
+        for (let i = 0; i < 20; i++) {
+            const y = Math.random() * 512;
+
+            context.strokeStyle = isRoughness
+                ? "rgb(60, 60, 60)"
+                : "rgb(30, 30, 30)";
+
+            context.lineWidth = Math.random() * 4 + 1;
+
+            context.beginPath();
+            context.moveTo(0, y);
+
+            context.bezierCurveTo(
+                150,
+                y + Math.random() * 30 - 15,
+                350,
+                y + Math.random() * 30 - 15,
+                512,
+                y
+            );
+
+            context.stroke();
+        }
+
+        const texture = new THREE.CanvasTexture(canvas);
+
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+
+        texture.colorSpace = THREE.NoColorSpace;
+
+        return texture;
+    }
+
+    // ----------------------------------
+    // 7. Create the bump and roughness maps
+    // ----------------------------------
+
+    const bumpTexture = createWoodPattern(false);
+    const roughnessTexture = createWoodPattern(true);
+
+    // ----------------------------------
+    // 8. Create a sphere with many vertices
+    // ----------------------------------
+
+    const geometry = new THREE.SphereGeometry(
+        1.3,
+        160,
+        160
+    );
+
+    // ----------------------------------
+    // 9. Load the real wood color image
+    // ----------------------------------
+
+    const textureLoader = new THREE.TextureLoader();
+
+    let colorTexture = null;
+
+    const material = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.8,
+        metalness: 0.0
+    });
+
+    const sphere = new THREE.Mesh(
+        geometry,
+        material
+    );
+
+    scene.add(sphere);
+
+    textureLoader.load(
+        "./textures/wood.jpeg",
+
+        function (texture) {
+            colorTexture = texture;
+
+            colorTexture.colorSpace = THREE.SRGBColorSpace;
+
+            colorTexture.wrapS = THREE.RepeatWrapping;
+            colorTexture.wrapT = THREE.RepeatWrapping;
+
+            colorTexture.repeat.set(2, 1);
+
+            material.map = colorTexture;
+            material.bumpMap = bumpTexture;
+            material.bumpScale = 0.06;
+            material.displacementMap = bumpTexture;
+            material.displacementScale = 0.08;
+            material.roughnessMap = roughnessTexture;
+
+            material.needsUpdate = true;
+
+            document.getElementById("status").textContent =
+                "Wood image loaded. Experiment with the maps!";
+        },
+
+        undefined,
+
+        function (error) {
+            console.error("Texture loading failed:", error);
+
+            document.getElementById("status").textContent =
+                "Could not load wood.jpg. Check the textures folder.";
+        }
+    );
+
+    // ----------------------------------
+    // 10. Create the floor
+    // ----------------------------------
+
+    const floorGeometry = new THREE.PlaneGeometry(
+        200,
+        200
+    );
+
+    const floorMaterial = new THREE.MeshStandardMaterial({
+        color: 0x28364a,
+        roughness: 1
+    });
+
+    const floor = new THREE.Mesh(
+        floorGeometry,
+        floorMaterial
+    );
+
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -1.8;
+
+    scene.add(floor);
+
+    // ----------------------------------
+    // 11. Map controls
+    // ----------------------------------
+
+    let bumpEnabled = true;
+    let displacementEnabled = true;
+    let roughnessEnabled = true;
+    let rotationEnabled = true;
+
+    const bumpButton = document.getElementById("bumpButton");
+    const displacementButton =
+        document.getElementById("displacementButton");
+    const roughnessButton =
+        document.getElementById("roughnessButton");
+    const rotationButton =
+        document.getElementById("rotationButton");
+
+    bumpButton.addEventListener("click", function () {
+        bumpEnabled = !bumpEnabled;
+
+        material.bumpMap = bumpEnabled
+            ? bumpTexture
+            : null;
+
+        bumpButton.textContent =
+            `Bump Map: ${bumpEnabled ? "ON" : "OFF"}`;
+    });
+
+    displacementButton.addEventListener("click", function () {
+        displacementEnabled = !displacementEnabled;
+
+        material.displacementMap = displacementEnabled
+            ? bumpTexture
+            : null;
+
+        displacementButton.textContent =
+            `Displacement Map: ${displacementEnabled ? "ON" : "OFF"}`;
+    });
+
+    roughnessButton.addEventListener("click", function () {
+        roughnessEnabled = !roughnessEnabled;
+
+        material.roughnessMap = roughnessEnabled
+            ? roughnessTexture
+            : null;
+
+        roughnessButton.textContent =
+            `Roughness Map: ${roughnessEnabled ? "ON" : "OFF"}`;
+    });
+
+    rotationButton.addEventListener("click", function () {
+        rotationEnabled = !rotationEnabled;
+
+        rotationButton.textContent =
+            `Rotation: ${rotationEnabled ? "ON" : "OFF"}`;
+    });
+
+    // ----------------------------------
+    // 12. Animate the scene
+    // ----------------------------------
+
+    function animate() {
+        requestAnimationFrame(animate);
+
+        if (rotationEnabled) {
+            sphere.rotation.y += 0.003;
+        }
+
+        controls.update();
+
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // ----------------------------------
+    // 13. Handle window resizing
+    // ----------------------------------
+
+    window.addEventListener("resize", function () {
+        camera.aspect =
+            window.innerWidth / window.innerHeight;
+
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+    });
+
+</script>
+
+</body>
+</html>
+
