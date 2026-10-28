@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Three.js - Chapter 5: Geometries</title>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #101018;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        #info {
+            position: absolute;
+            top: 15px;
+            left: 18px;
+            line-height: 1.7;
+            pointer-events: none;
+        }
+
+        #controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 15px;
+            width: 190px;
+            background: rgba(20, 20, 35, 0.92);
+            border: 1px solid #555577;
+            border-radius: 8px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            background: #292945;
+            color: white;
+            border: 1px solid #7777aa;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #44446b;
+        }
+
+        #shapeInfo {
+            font-size: 13px;
+            line-height: 1.6;
+            color: #ccccdd;
+        }
+
+        #legend {
+            position: absolute;
+            bottom: 12px;
+            left: 15px;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #ccccdd;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="info">
+        <strong>THREE.JS — CHAPTER 5</strong><br>
+        Learning to Work with Geometries<br>
+        Explore the shapes provided by Three.js
+    </div>
+
+    <div id="controls">
+        <strong>Geometry Gallery</strong>
+
+        <p id="shapeInfo">
+            Click a shape to learn about its geometry.
+        </p>
+
+        <button id="wireframeButton">
+            Toggle Wireframe
+        </button>
+
+        <button id="rotationButton">
+            Stop Rotation
+        </button>
+
+        <button id="resetButton">
+            Reset Scene
+        </button>
+    </div>
+
+    <div id="legend">
+        BOX · SPHERE · CYLINDER · CONE · TORUS<br>
+        CIRCLE · TETRAHEDRON · OCTAHEDRON · DODECAHEDRON
+    </div>
+
+    <script type="module">
+
+        import * as THREE from "three";
+
+
+        // ==========================================
+        // 1. CREATE THE SCENE
+        // ==========================================
+
+        const scene = new THREE.Scene();
+
+        scene.background = new THREE.Color(0x101018);
+
+
+        // ==========================================
+        // 2. CREATE THE CAMERA
+        // ==========================================
+
+        const camera = new THREE.PerspectiveCamera(
+            55,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            100
+        );
+
+        camera.position.set(0, 10, 17);
+
+        camera.lookAt(0, 0, 1);
+
+
+        // ==========================================
+        // 3. CREATE THE RENDERER
+        // ==========================================
+
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true
+        });
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+
+        renderer.setPixelRatio(
+            Math.min(window.devicePixelRatio, 2)
+        );
+
+        document.body.appendChild(renderer.domElement);
+
+
+        // ==========================================
+        // 4. ADD LIGHTS
+        // ==========================================
+
+        const ambientLight = new THREE.AmbientLight(
+            0xffffff,
+            1.5
+        );
+
+        scene.add(ambientLight);
+
+
+        const directionalLight = new THREE.DirectionalLight(
+            0xffffff,
+            2.5
+        );
+
+        directionalLight.position.set(5, 10, 7);
+
+        scene.add(directionalLight);
+
+
+        // ==========================================
+        // 5. CREATE A MATERIAL
+        // ==========================================
+
+        // Each shape will have its own material.
+
+        const colors = [
+            0x3399ff,
+            0xff5533,
+            0x44dd88,
+            0xffcc33,
+            0xbb77ff,
+            0xff6699,
+            0x33dddd,
+            0xff8844,
+            0xaaaaee
+        ];
+
+
+        // ==========================================
+        // 6. CREATE THE GEOMETRIES
+        // ==========================================
+
+        const geometries = [
+
+            // 1. Box
+
+            new THREE.BoxGeometry(
+                1.5, 1.5, 1.5
+            ),
+
+
+            // 2. Sphere
+
+            new THREE.SphereGeometry(
+                0.85, 32, 24
+            ),
+
+
+            // 3. Cylinder
+
+            new THREE.CylinderGeometry(
+                0.65, 0.65, 1.7, 32
+            ),
+
+
+            // 4. Cone
+
+            new THREE.ConeGeometry(
+                0.8, 1.7, 32
+            ),
+
+
+            // 5. Torus
+
+            new THREE.TorusGeometry(
+                0.65, 0.25, 16, 48
+            ),
+
+
+            // 6. Circle
+
+            new THREE.CircleGeometry(
+                0.85, 48
+            ),
+
+
+            // 7. Tetrahedron
+
+            new THREE.TetrahedronGeometry(
+                0.9
+            ),
+
+
+            // 8. Octahedron
+
+            new THREE.OctahedronGeometry(
+                0.9
+            ),
+
+
+            // 9. Dodecahedron
+
+            new THREE.DodecahedronGeometry(
+                0.9
+            )
+
+        ];
+
+
+        // ==========================================
+        // 7. CREATE THE MESHES
+        // ==========================================
+
+        const names = [
+            "BoxGeometry",
+            "SphereGeometry",
+            "CylinderGeometry",
+            "ConeGeometry",
+            "TorusGeometry",
+            "CircleGeometry",
+            "TetrahedronGeometry",
+            "OctahedronGeometry",
+            "DodecahedronGeometry"
+        ];
+
+
+        const descriptions = [
+
+            "A box with width, height and depth.",
+
+            "A sphere controlled by radius and segments.",
+
+            "A cylinder controlled by top radius, bottom radius, height and segments.",
+
+            "A cone controlled by radius, height and radial segments.",
+
+            "A ring-shaped surface controlled by radius and tube radius.",
+
+            "A flat circular shape created in the XY plane.",
+
+            "A polyhedron with four triangular faces.",
+
+            "A polyhedron with eight triangular faces.",
+
+            "A polyhedron with twelve pentagonal faces."
+
+        ];
+
+
+        const meshes = [];
+
+        const clickableMeshes = [];
+
+        const spacing = 3.3;
+
+
+        for (let i = 0; i < geometries.length; i++) {
+
+            const material = new THREE.MeshStandardMaterial({
+                color: colors[i],
+                roughness: 0.4,
+                metalness: 0.1,
+
+                // Show both sides of flat geometry.
+                side: THREE.DoubleSide
+            });
+
+
+            const mesh = new THREE.Mesh(
+                geometries[i],
+                material
+            );
+
+
+            // Arrange objects in a 3-by-3 grid.
+
+            const column = i % 3;
+
+            const row = Math.floor(i / 3);
+
+            mesh.position.set(
+                (column - 1) * spacing,
+                1,
+                row * spacing - 3
+            );
+
+
+            // Make the flat circle face forward.
+
+            if (i === 5) {
+
+                mesh.rotation.y = 0;
+
+            }
+
+
+            scene.add(mesh);
+
+            meshes.push(mesh);
+
+            clickableMeshes.push(mesh);
+
+        }
+
+
+        // ==========================================
+        // 8. CREATE THE FLOOR
+        // ==========================================
+
+        const floorGeometry = new THREE.PlaneGeometry(
+            200, 200
+        );
+
+        const floorMaterial = new THREE.MeshStandardMaterial({
+            color: 0x252535,
+            roughness: 1
+        });
+
+        const floor = new THREE.Mesh(
+            floorGeometry,
+            floorMaterial
+        );
+
+        floor.rotation.x = -Math.PI / 2;
+
+        floor.position.y = 0;
+
+        scene.add(floor);
+
+
+        const grid = new THREE.GridHelper(
+            20, 20, 0x666688, 0x333344
+        );
+
+        grid.position.y = 0.01;
+
+        scene.add(grid);
+
+
+        // ==========================================
+        // 9. SELECT SHAPES WITH THE MOUSE
+        // ==========================================
+
+        const raycaster = new THREE.Raycaster();
+
+        const mouse = new THREE.Vector2();
+
+        const shapeInfo =
+            document.getElementById("shapeInfo");
+
+
+        renderer.domElement.addEventListener(
+            "click",
+            (event) => {
+
+                // Convert mouse position into normalized
+                // coordinates ranging from -1 to +1.
+
+                mouse.x =
+                    (event.clientX / window.innerWidth) * 2 - 1;
+
+                mouse.y =
+                    -(event.clientY / window.innerHeight) * 2 + 1;
+
+
+                // Cast a ray from the camera through
+                // the mouse position into the scene.
+
+                raycaster.setFromCamera(mouse, camera);
+
+
+                const hits = raycaster.intersectObjects(
+                    clickableMeshes
+                );
+
+
+                if (hits.length > 0) {
+
+                    const selectedMesh = hits[0].object;
+
+                    const index = meshes.indexOf(selectedMesh);
+
+
+                    shapeInfo.textContent =
+                        names[index] + ": " + descriptions[index];
+
+                }
+
+            }
+        );
+
+
+        // ==========================================
+        // 10. TOGGLE WIREFRAME
+        // ==========================================
+
+        let wireframeEnabled = false;
+
+
+        document.getElementById("wireframeButton")
+            .addEventListener("click", () => {
+
+                wireframeEnabled = !wireframeEnabled;
+
+
+                for (const mesh of meshes) {
+
+                    mesh.material.wireframe =
+                        wireframeEnabled;
+
+                }
+
+            });
+
+
+        // ==========================================
+        // 11. START AND STOP ROTATION
+        // ==========================================
+
+        let rotationEnabled = true;
+
+
+        document.getElementById("rotationButton")
+            .addEventListener("click", (event) => {
+
+                rotationEnabled = !rotationEnabled;
+
+
+                event.target.textContent =
+                    rotationEnabled
+                        ? "Stop Rotation"
+                        : "Start Rotation";
+
+            });
+
+
+        // ==========================================
+        // 12. RESET THE SCENE
+        // ==========================================
+
+        document.getElementById("resetButton")
+            .addEventListener("click", () => {
+
+                for (const mesh of meshes) {
+
+                    mesh.rotation.set(0, 0, 0);
+
+                }
+
+                wireframeEnabled = false;
+
+                for (const mesh of meshes) {
+
+                    mesh.material.wireframe = false;
+
+                }
+
+                rotationEnabled = true;
+
+                document.getElementById("rotationButton")
+                    .textContent = "Stop Rotation";
+
+                shapeInfo.textContent =
+                    "Click a shape to learn about its geometry.";
+
+            });
+
+
+        // ==========================================
+        // 13. ANIMATION LOOP
+        // ==========================================
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+
+            if (rotationEnabled) {
+
+                for (let i = 0; i < meshes.length; i++) {
+
+                    meshes[i].rotation.y += 0.008;
+
+                    // Rotate some shapes around another axis.
+
+                    if (i !== 5) {
+
+                        meshes[i].rotation.x += 0.003;
+
+                    }
+
+                }
+
+            }
+
+
+            renderer.render(scene, camera);
+
+        }
+
+        animate();
+
+
+        // ==========================================
+        // 14. HANDLE WINDOW RESIZING
+        // ==========================================
+
+        window.addEventListener("resize", () => {
+
+            camera.aspect =
+                window.innerWidth / window.innerHeight;
+
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(
+                window.innerWidth,
+                window.innerHeight
+            );
+
+        });
+
+    </script>
+
+</body>
+
+</html>
