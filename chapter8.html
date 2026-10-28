@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Three.js Chapter 8 - Geometry Lab</title>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #10131e;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #panel {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            width: 260px;
+            padding: 16px;
+            background: rgba(10, 15, 30, 0.9);
+            border: 1px solid #4b5563;
+            border-radius: 10px;
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        p {
+            font-size: 13px;
+            line-height: 1.5;
+            color: #cbd5e1;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 7px;
+            color: white;
+            background: #4f46e5;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #6366f1;
+        }
+
+        #status {
+            color: #86efac;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="panel">
+        <h2>Geometry Lab</h2>
+
+        <p>
+            Chapter 8: Creating and Loading Advanced
+            Meshes and Geometries
+        </p>
+
+        <p>
+            Three demonstrations:
+            grouping, instancing, and merging.
+        </p>
+
+        <button id="showGroup">Show Group</button>
+        <button id="showInstances">Show Instanced Mesh</button>
+        <button id="showMerged">Show Merged Geometry</button>
+        <button id="rotate">Pause / Resume Rotation</button>
+
+        <p id="status">Loading scene...</p>
+    </div>
+
+    <script type="module">
+
+        import * as THREE from "three";
+
+        import {
+            mergeGeometries
+        } from "three/addons/utils/BufferGeometryUtils.js";
+
+
+        // ========================================
+        // 1. SCENE
+        // ========================================
+
+        const scene = new THREE.Scene();
+
+        scene.background = new THREE.Color(0x10131e);
+
+
+        // ========================================
+        // 2. CAMERA
+        // ========================================
+
+        const camera = new THREE.PerspectiveCamera(
+            60,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+
+        camera.position.set(0, 15, 35);
+
+        camera.lookAt(0, 0, 0);
+
+
+        // ========================================
+        // 3. RENDERER
+        // ========================================
+
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true
+        });
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+
+        renderer.setPixelRatio(
+            Math.min(window.devicePixelRatio, 2)
+        );
+
+        document.body.appendChild(renderer.domElement);
+
+
+        // ========================================
+        // 4. LIGHTING
+        // ========================================
+
+        const ambientLight = new THREE.AmbientLight(
+            0xffffff,
+            2
+        );
+
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(
+            0xffffff,
+            3
+        );
+
+        directionalLight.position.set(10, 20, 10);
+
+        scene.add(directionalLight);
+
+
+        // ========================================
+        // 5. FLOOR AND GRID
+        // ========================================
+
+        const floorGeometry = new THREE.PlaneGeometry(
+            100,
+            100
+        );
+
+        const floorMaterial = new THREE.MeshStandardMaterial({
+            color: 0x20283a,
+            roughness: 0.9
+        });
+
+        const floor = new THREE.Mesh(
+            floorGeometry,
+            floorMaterial
+        );
+
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -5;
+
+        scene.add(floor);
+
+        const grid = new THREE.GridHelper(
+            100,
+            50,
+            0x64748b,
+            0x334155
+        );
+
+        grid.position.y = -4.98;
+
+        scene.add(grid);
+
+
+        // ========================================
+        // 6. GROUPING OBJECTS
+        // ========================================
+
+        const group = new THREE.Group();
+
+        // Create a cube.
+
+        const cube = new THREE.Mesh(
+            new THREE.BoxGeometry(2, 2, 2),
+            new THREE.MeshStandardMaterial({
+                color: 0xff5555
+            })
+        );
+
+        cube.position.set(-3, 0, 0);
+
+        // Create a sphere.
+
+        const sphere = new THREE.Mesh(
+            new THREE.SphereGeometry(1.2, 24, 16),
+            new THREE.MeshStandardMaterial({
+                color: 0x55ccff
+            })
+        );
+
+        sphere.position.set(0, 0, 0);
+
+        // Create a cone.
+
+        const cone = new THREE.Mesh(
+            new THREE.ConeGeometry(1.2, 2.5, 24),
+            new THREE.MeshStandardMaterial({
+                color: 0xffcc44
+            })
+        );
+
+        cone.position.set(3, 0, 0);
+
+        // Put the three objects inside the group.
+
+        group.add(cube);
+        group.add(sphere);
+        group.add(cone);
+
+        // Position the whole group.
+
+        group.position.set(-12, 0, 0);
+
+        scene.add(group);
+
+
+        // ========================================
+        // 7. INSTANCED MESH
+        // ========================================
+
+        const instanceCount = 1500;
+
+        const instanceGeometry = new THREE.BoxGeometry(
+            0.35,
+            0.35,
+            0.35
+        );
+
+        const instanceMaterial = new THREE.MeshStandardMaterial({
+            color: 0x55ddaa
+        });
+
+        const instancedMesh = new THREE.InstancedMesh(
+            instanceGeometry,
+            instanceMaterial,
+            instanceCount
+        );
+
+        const dummy = new THREE.Object3D();
+
+        for (let i = 0; i < instanceCount; i++) {
+
+            // Generate a random position.
+
+            const x = (Math.random() - 0.5) * 18;
+            const y = Math.random() * 10 - 1;
+            const z = (Math.random() - 0.5) * 18;
+
+            // Give every cube a different position.
+
+            dummy.position.set(x, y, z);
+
+            // Give every cube a random rotation.
+
+            dummy.rotation.set(
+                Math.random() * Math.PI,
+                Math.random() * Math.PI,
+                Math.random() * Math.PI
+            );
+
+            // Update the transformation matrix.
+
+            dummy.updateMatrix();
+
+            // Store the transformation for this instance.
+
+            instancedMesh.setMatrixAt(
+                i,
+                dummy.matrix
+            );
+        }
+
+        instancedMesh.instanceMatrix.needsUpdate = true;
+
+        // Position the instanced mesh demonstration.
+
+        instancedMesh.position.x = 12;
+
+        scene.add(instancedMesh);
+
+
+        // ========================================
+        // 8. MERGING GEOMETRIES
+        // ========================================
+
+        const geometriesToMerge = [];
+
+        const mergedCount = 300;
+
+        const mergedCubeSize = 0.4;
+
+        for (let i = 0; i < mergedCount; i++) {
+
+            // Create a separate cube geometry.
+
+            const geometry = new THREE.BoxGeometry(
+                mergedCubeSize,
+                mergedCubeSize,
+                mergedCubeSize
+            );
+
+            // Choose a random position.
+
+            const x = (Math.random() - 0.5) * 12;
+            const y = Math.random() * 8 - 1;
+            const z = (Math.random() - 0.5) * 12;
+
+            // Move the geometry's vertices into place.
+
+            geometry.translate(x, y, z);
+
+            // Store the transformed geometry.
+
+            geometriesToMerge.push(geometry);
+        }
+
+        // Combine all 300 cube geometries.
+
+        const mergedGeometry = mergeGeometries(
+            geometriesToMerge
+        );
+
+        if (!mergedGeometry) {
+            throw new Error(
+                "Could not merge the geometries."
+            );
+        }
+
+        // All cubes in the merged geometry share one material.
+
+        const mergedMaterial = new THREE.MeshStandardMaterial({
+            color: 0xff66dd
+        });
+
+        const mergedMesh = new THREE.Mesh(
+            mergedGeometry,
+            mergedMaterial
+        );
+
+        mergedMesh.position.set(0, 0, 12);
+
+        scene.add(mergedMesh);
+
+        // The original geometries are no longer needed.
+
+        geometriesToMerge.forEach((geometry) => {
+            geometry.dispose();
+        });
+
+
+        // ========================================
+        // 9. SHOW ONE DEMONSTRATION AT A TIME
+        // ========================================
+
+        function showGroup() {
+
+            group.visible = true;
+            instancedMesh.visible = false;
+            mergedMesh.visible = false;
+
+            status.textContent =
+                "Showing a group of three separate objects.";
+        }
+
+        function showInstances() {
+
+            group.visible = false;
+            instancedMesh.visible = true;
+            mergedMesh.visible = false;
+
+            status.textContent =
+                "Showing 1,500 instances of one cube geometry.";
+        }
+
+        function showMerged() {
+
+            group.visible = false;
+            instancedMesh.visible = false;
+            mergedMesh.visible = true;
+
+            status.textContent =
+                "Showing 300 cubes combined into one geometry.";
+        }
+
+        const status = document.getElementById("status");
+
+        document.getElementById("showGroup")
+            .addEventListener("click", showGroup);
+
+        document.getElementById("showInstances")
+            .addEventListener("click", showInstances);
+
+        document.getElementById("showMerged")
+            .addEventListener("click", showMerged);
+
+
+        // ========================================
+        // 10. ROTATION CONTROL
+        // ========================================
+
+        let rotating = true;
+
+        document.getElementById("rotate")
+            .addEventListener("click", () => {
+
+                rotating = !rotating;
+
+                status.textContent = rotating
+                    ? "Rotation enabled."
+                    : "Rotation paused.";
+            });
+
+
+        // ========================================
+        // 11. ANIMATION LOOP
+        // ========================================
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+            if (rotating) {
+
+                group.rotation.y += 0.005;
+
+                instancedMesh.rotation.y += 0.002;
+
+                mergedMesh.rotation.y += 0.003;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Start by showing the group.
+
+        showGroup();
+
+        animate();
+
+
+        // ========================================
+        // 12. HANDLE WINDOW RESIZING
+        // ========================================
+
+        window.addEventListener("resize", () => {
+
+            camera.aspect =
+                window.innerWidth / window.innerHeight;
+
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(
+                window.innerWidth,
+                window.innerHeight
+            );
+        });
+
+    </script>
+
+</body>
+</html>
