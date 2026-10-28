@@ -1,0 +1,624 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Three.js - Chapter 3: Lighting</title>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #101018;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        #info {
+            position: absolute;
+            top: 12px;
+            left: 15px;
+            line-height: 1.6;
+            pointer-events: none;
+        }
+
+        #controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 220px;
+            padding: 15px;
+            background: rgba(15, 15, 30, 0.9);
+            border: 1px solid #555577;
+            border-radius: 8px;
+        }
+
+        h3 {
+            margin-top: 0;
+        }
+
+        .control {
+            margin-bottom: 14px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        input[type="color"] {
+            width: 100%;
+            height: 32px;
+            cursor: pointer;
+        }
+
+        button {
+            width: 100%;
+            padding: 9px;
+            margin-bottom: 7px;
+            border: 1px solid #7777aa;
+            border-radius: 5px;
+            background: #292945;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #44446b;
+        }
+
+        .status {
+            font-size: 13px;
+            color: #bbbbdd;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="info">
+        <strong>THREE.JS — CHAPTER 3</strong><br>
+        Working with Light Sources<br>
+        <span>Experiment with the lighting controls →</span>
+    </div>
+
+    <div id="controls">
+
+        <h3>Lighting Lab</h3>
+
+        <div class="control">
+            <label>
+                <input type="checkbox" id="ambientToggle" checked>
+                Ambient Light
+            </label>
+
+            <label for="ambientIntensity">
+                Ambient intensity:
+                <span id="ambientValue">0.5</span>
+            </label>
+
+            <input
+                type="range"
+                id="ambientIntensity"
+                min="0"
+                max="2"
+                step="0.1"
+                value="0.5"
+            >
+        </div>
+
+        <hr>
+
+        <div class="control">
+            <label>
+                <input type="checkbox" id="directionalToggle" checked>
+                Directional Light
+            </label>
+
+            <label for="directionalIntensity">
+                Directional intensity:
+                <span id="directionalValue">2</span>
+            </label>
+
+            <input
+                type="range"
+                id="directionalIntensity"
+                min="0"
+                max="5"
+                step="0.1"
+                value="2"
+            >
+
+            <label for="directionalColor">Directional color:</label>
+
+            <input
+                type="color"
+                id="directionalColor"
+                value="#ffffff"
+            >
+        </div>
+
+        <hr>
+
+        <div class="control">
+            <label>
+                <input type="checkbox" id="pointToggle" checked>
+                Point Light
+            </label>
+
+            <label for="pointIntensity">
+                Point intensity:
+                <span id="pointValue">30</span>
+            </label>
+
+            <input
+                type="range"
+                id="pointIntensity"
+                min="0"
+                max="100"
+                step="1"
+                value="30"
+            >
+
+            <label for="pointColor">Point light color:</label>
+
+            <input
+                type="color"
+                id="pointColor"
+                value="#ff5533"
+            >
+        </div>
+
+        <button id="resetButton">Reset Lighting</button>
+
+        <p class="status">
+            Tip: Turn off Ambient Light to see directional lighting more clearly.
+        </p>
+
+    </div>
+
+    <script type="module">
+
+        import * as THREE from "three";
+
+
+        // ==========================================
+        // 1. SCENE
+        // ==========================================
+
+        const scene = new THREE.Scene();
+
+        scene.background = new THREE.Color(0x101018);
+
+
+        // ==========================================
+        // 2. CAMERA
+        // ==========================================
+
+        const camera = new THREE.PerspectiveCamera(
+            60,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            100
+        );
+
+        camera.position.set(7, 5, 10);
+
+        camera.lookAt(0, 1, 0);
+
+
+        // ==========================================
+        // 3. RENDERER
+        // ==========================================
+
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true
+        });
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+
+        renderer.setPixelRatio(
+            Math.min(window.devicePixelRatio, 2)
+        );
+
+        document.body.appendChild(renderer.domElement);
+
+
+        // ==========================================
+        // 4. AMBIENT LIGHT
+        // ==========================================
+
+        const ambientLight = new THREE.AmbientLight(
+            0xffffff,
+            0.5
+        );
+
+        scene.add(ambientLight);
+
+
+        // ==========================================
+        // 5. DIRECTIONAL LIGHT
+        // ==========================================
+
+        const directionalLight = new THREE.DirectionalLight(
+            0xffffff,
+            2
+        );
+
+        directionalLight.position.set(5, 8, 5);
+
+        scene.add(directionalLight);
+
+
+        // Show the direction of the directional light.
+
+        const directionalHelper =
+            new THREE.DirectionalLightHelper(
+                directionalLight,
+                1,
+                0xffff00
+            );
+
+        scene.add(directionalHelper);
+
+
+        // ==========================================
+        // 6. POINT LIGHT
+        // ==========================================
+
+        const pointLight = new THREE.PointLight(
+            0xff5533,
+            30
+        );
+
+        pointLight.position.set(-3, 3, 2);
+
+        scene.add(pointLight);
+
+
+        // Show the position of the point light.
+
+        const pointHelper = new THREE.PointLightHelper(
+            pointLight,
+            0.25
+        );
+
+        scene.add(pointHelper);
+
+
+        // ==========================================
+        // 7. CREATE OBJECTS
+        // ==========================================
+
+        // Blue cube.
+
+        const cubeGeometry = new THREE.BoxGeometry(
+            1.5, 1.5, 1.5
+        );
+
+        const cubeMaterial = new THREE.MeshStandardMaterial({
+            color: 0x3399ff,
+            roughness: 0.35,
+            metalness: 0.1
+        });
+
+        const cube = new THREE.Mesh(
+            cubeGeometry,
+            cubeMaterial
+        );
+
+        cube.position.set(-2.5, 1, 0);
+
+        scene.add(cube);
+
+
+        // White sphere.
+
+        const sphereGeometry = new THREE.SphereGeometry(
+            0.9, 48, 32
+        );
+
+        const sphereMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            roughness: 0.25,
+            metalness: 0.1
+        });
+
+        const sphere = new THREE.Mesh(
+            sphereGeometry,
+            sphereMaterial
+        );
+
+        sphere.position.set(0, 1, 0);
+
+        scene.add(sphere);
+
+
+        // Green torus.
+
+        const torusGeometry = new THREE.TorusGeometry(
+            0.7, 0.25, 16, 48
+        );
+
+        const torusMaterial = new THREE.MeshStandardMaterial({
+            color: 0x44dd88,
+            roughness: 0.3,
+            metalness: 0.2
+        });
+
+        const torus = new THREE.Mesh(
+            torusGeometry,
+            torusMaterial
+        );
+
+        torus.position.set(2.5, 1, 0);
+
+        scene.add(torus);
+
+
+        // ==========================================
+        // 8. FLOOR AND GRID
+        // ==========================================
+
+        const floorGeometry = new THREE.PlaneGeometry(
+            200, 200
+        );
+
+        const floorMaterial = new THREE.MeshStandardMaterial({
+            color: 0x252535,
+            roughness: 0.9
+        });
+
+        const floor = new THREE.Mesh(
+            floorGeometry,
+            floorMaterial
+        );
+
+        floor.rotation.x = -Math.PI / 2;
+
+        floor.position.y = 0;
+
+        scene.add(floor);
+
+
+        const grid = new THREE.GridHelper(
+            20, 20, 0x666688, 0x333344
+        );
+
+        grid.position.y = 0.01;
+
+        scene.add(grid);
+
+
+        // ==========================================
+        // 9. CONNECT LIGHTING CONTROLS
+        // ==========================================
+
+        const ambientToggle =
+            document.getElementById("ambientToggle");
+
+        const directionalToggle =
+            document.getElementById("directionalToggle");
+
+        const pointToggle =
+            document.getElementById("pointToggle");
+
+
+        // Ambient light controls.
+
+        document.getElementById("ambientIntensity")
+            .addEventListener("input", (event) => {
+
+                ambientLight.intensity =
+                    Number(event.target.value);
+
+                document.getElementById("ambientValue")
+                    .textContent = event.target.value;
+
+            });
+
+
+        ambientToggle.addEventListener("change", () => {
+
+            ambientLight.visible = ambientToggle.checked;
+
+        });
+
+
+        // Directional light controls.
+
+        document.getElementById("directionalIntensity")
+            .addEventListener("input", (event) => {
+
+                directionalLight.intensity =
+                    Number(event.target.value);
+
+                document.getElementById("directionalValue")
+                    .textContent = event.target.value;
+
+            });
+
+
+        document.getElementById("directionalColor")
+            .addEventListener("input", (event) => {
+
+                directionalLight.color.set(event.target.value);
+
+            });
+
+
+        directionalToggle.addEventListener("change", () => {
+
+            directionalLight.visible =
+                directionalToggle.checked;
+
+            directionalHelper.visible =
+                directionalToggle.checked;
+
+        });
+
+
+        // Point light controls.
+
+        document.getElementById("pointIntensity")
+            .addEventListener("input", (event) => {
+
+                pointLight.intensity =
+                    Number(event.target.value);
+
+                document.getElementById("pointValue")
+                    .textContent = event.target.value;
+
+            });
+
+
+        document.getElementById("pointColor")
+            .addEventListener("input", (event) => {
+
+                pointLight.color.set(event.target.value);
+
+            });
+
+
+        pointToggle.addEventListener("change", () => {
+
+            pointLight.visible = pointToggle.checked;
+
+            pointHelper.visible = pointToggle.checked;
+
+        });
+
+
+        // ==========================================
+        // 10. RESET LIGHTING
+        // ==========================================
+
+        document.getElementById("resetButton")
+            .addEventListener("click", () => {
+
+                ambientToggle.checked = true;
+
+                ambientLight.visible = true;
+
+                ambientLight.intensity = 0.5;
+
+                document.getElementById("ambientIntensity")
+                    .value = 0.5;
+
+                document.getElementById("ambientValue")
+                    .textContent = "0.5";
+
+
+                directionalToggle.checked = true;
+
+                directionalLight.visible = true;
+
+                directionalHelper.visible = true;
+
+                directionalLight.intensity = 2;
+
+                directionalLight.color.set("#ffffff");
+
+                document.getElementById("directionalIntensity")
+                    .value = 2;
+
+                document.getElementById("directionalValue")
+                    .textContent = "2";
+
+                document.getElementById("directionalColor")
+                    .value = "#ffffff";
+
+
+                pointToggle.checked = true;
+
+                pointLight.visible = true;
+
+                pointHelper.visible = true;
+
+                pointLight.intensity = 30;
+
+                pointLight.color.set("#ff5533");
+
+                document.getElementById("pointIntensity")
+                    .value = 30;
+
+                document.getElementById("pointValue")
+                    .textContent = "30";
+
+                document.getElementById("pointColor")
+                    .value = "#ff5533";
+
+            });
+
+
+        // ==========================================
+        // 11. ANIMATION
+        // ==========================================
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+            cube.rotation.y += 0.008;
+
+            sphere.rotation.y += 0.01;
+
+            torus.rotation.x += 0.008;
+
+            torus.rotation.y += 0.01;
+
+            // Update the helpers to match their lights.
+
+            directionalHelper.update();
+
+            pointHelper.update();
+
+            renderer.render(scene, camera);
+
+        }
+
+        animate();
+
+
+        // ==========================================
+        // 12. WINDOW RESIZING
+        // ==========================================
+
+        window.addEventListener("resize", () => {
+
+            camera.aspect =
+                window.innerWidth / window.innerHeight;
+
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(
+                window.innerWidth,
+                window.innerHeight
+            );
+
+        });
+
+    </script>
+
+</body>
+
+</html>
